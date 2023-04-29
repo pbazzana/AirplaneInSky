@@ -122,7 +122,7 @@ class Quaternion:
     final_quaternion.values[3] = Q0Q1_z
 
     return final_quaternion
-    
+
 
 def main():
   elev = 0.0 # elevation 0 is the line of the horizon
@@ -135,7 +135,7 @@ def main():
   phoneRotationMatrix = np.eye(4)
   phoneOrientation = getPhoneOrientation()
   phoneRotationMatrix = getRotationMatrixFromVector(phoneOrientation)
-  
+
   # Build the rotation quaternion  
   phoneRotationQuaternion = Quaternion()
   phoneRotationQuaternionConj = Quaternion()
@@ -143,41 +143,59 @@ def main():
   phoneRotationQuaternionConj.copy(phoneRotationQuaternion)
   phoneRotationQuaternionConj.conjugate()
   resultQuaternion = Quaternion()
-  
+
+  # compute points of the horizon
   idx = 0
   for az in r:
     azRad = az * np.pi / 180
     z = np.cos(elevRad) * np.cos(azRad)
     x = np.cos(elevRad) * np.sin(azRad)
     y = np.sin(elevRad)
-    
-    #transform the vector with matrix
-    v = np.array([x, y, z, 1])
-    vt = phoneRotationMatrix.dot(v)
-    x1 = vt[0]
-    y1 = vt[1]
-    z1 = vt[2]
 
     #transform the vector with quaternion
-    resultQuaternion.values[0] = 0.0
-    resultQuaternion.values[1] = x
-    resultQuaternion.values[2] = y
-    resultQuaternion.values[3] = z
-    resultQuaternion = Quaternion().multiply(phoneRotationQuaternion, resultQuaternion)
-    resultQuaternion = Quaternion().multiply(resultQuaternion, phoneRotationQuaternionConj)
-    xq1 = resultQuaternion.values[1]
-    yq1 = resultQuaternion.values[2]
-    zq1 = resultQuaternion.values[3]
-    
-    if (np.abs(z1) > 0.0):
-      xVanish[idx] = x1 / z1
-      yVanish[idx] = y1 / z1
-      
+    x1, y1 = transformPoint(x, y, z, phoneRotationQuaternion, phoneRotationQuaternionConj)
+    xVanish[idx] = x1
+    yVanish[idx] = y1
     idx += 1
 
+  # Compute the point corresponding
+  elevRad = 30.0 * np.pi / 180.0
+  azRad = 30.0 * np.pi / 180.0
+  altitude = 100.0
+  zairplane = altitude * np.cos(elevRad) * np.cos(azRad)
+  xairplane = altitude * np.cos(elevRad) * np.sin(azRad)
+  yairplane = altitude * np.sin(elevRad)
+  xpVanish, ypVanish = transformPoint(xairplane, yairplane, zairplane, phoneRotationQuaternion, phoneRotationQuaternionConj)
+  
   plt.figure()
   plt.plot(xVanish, yVanish)
+
+  circle = plt.Circle((xpVanish, ypVanish), 0.01, color='b')
+  plt.gca().add_patch(circle)
   plt.show()
+
+
+def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj):
+  resultQuaternion = Quaternion()
+  resultQuaternion.values[0] = 0.0
+  resultQuaternion.values[1] = x
+  resultQuaternion.values[2] = y
+  resultQuaternion.values[3] = z
+  resultQuaternion = Quaternion().multiply(rotationQuaternion, resultQuaternion)
+  resultQuaternion = Quaternion().multiply(resultQuaternion, rotationQuaternionConj)
+  xq1 = resultQuaternion.values[1]
+  yq1 = resultQuaternion.values[2]
+  zq1 = resultQuaternion.values[3]
+
+  if (np.abs(zq1) > 0.0):
+    x1 = xq1 / zq1
+    y1 = yq1 / zq1
+  else:
+    x1 = 0.0 # not sure it's the right choice; is a point out of the screen (to prevent visualization) a better choice?
+    y1 = 0.0 # not sure it's the right choice; is a point out of the screen (to prevent visualization) a better choice?
+    
+  return x1, y1
+
 
 
 def getPhoneOrientation():
@@ -190,7 +208,7 @@ def getPhoneOrientation():
     rotation vector with 3 entries
   """
   phoneOrientation = RotationVector()
-  st = np.sin(-25.0*np.pi/180.0)
+  st = np.sin(-30.0*np.pi/180.0)
   phoneOrientation.values = np.array([0.0, st, 0.0])
   return phoneOrientation
 
