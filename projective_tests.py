@@ -39,7 +39,7 @@ class Quaternion:
 
   def getQuaternionFromVector(self, rotationVector):
     """
-    Get Quaternion from a 3 component vector
+    Get Quaternion from a 3 component rotation vector
     See https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/hardware/SensorManager.java
     The method getQuaternionFromVector (using code for rotation vector with 3 entries, consistent with SkyMAP)
     
@@ -48,20 +48,33 @@ class Quaternion:
             of the quaternion corresponding to the provided rotation vector
     """
     rv = rotationVector
-    self.values[0] = 1.0 - rv.values[0] * rv.values[0] - rv.values[1] * rv.values[1] - rv.values[2] * rv.values[2]
-    if(self.values[0] > 0):
+    nonZeroNum = 0.0
+    if(np.abs(rv.values[0]) > 1e-9):
+      nonZeroNum = nonZeroNum + 1.0
+    if(np.abs(rv.values[1]) > 1e-9):
+      nonZeroNum = nonZeroNum + 1.0
+    if(np.abs(rv.values[2]) > 1e-9):
+      nonZeroNum = nonZeroNum + 1.0
+
+    if(nonZeroNum > 0):
+      self.values[0] = 1.0 - (rv.values[0] * rv.values[0] + rv.values[1] * rv.values[1] + rv.values[2] * rv.values[2]) / nonZeroNum
       self.values[0] = np.sqrt(self.values[0])
+      self.values[1] = rv.values[0]
+      self.values[2] = rv.values[1]
+      self.values[3] = rv.values[2]
     else:
-      self.values[0] = 0.0
-    self.values[1] = rv.values[0]
-    self.values[2] = rv.values[1]
-    self.values[3] = rv.values[2]
+      self.values[0] = 1.0
+      self.values[1] = 0.0
+      self.values[2] = 0.0
+      self.values[3] = 0.0
+      
   
   def conjugate(self):
     # values[0] i.e. W is unchanded when conjugating
     self.values[1] = -self.values[1]
     self.values[2] = -self.values[2]
     self.values[3] = -self.values[3]
+
 
   def copy(self, Q):
     """
@@ -80,6 +93,7 @@ class Quaternion:
     self.values[1] = Q.values[1]
     self.values[2] = Q.values[2]
     self.values[3] = Q.values[3]
+
 
   @staticmethod
   def multiply(Q0,Q1):
@@ -114,7 +128,7 @@ class Quaternion:
     # Create a 4 element array containing the final quaternion
     # original code of Android: suggests that values[0] is W (the scalar of the quaternion)
     # np.array([Q0Q1_w, Q0Q1_x, Q0Q1_y, Q0Q1_z])
-    
+
     final_quaternion =Quaternion()
     final_quaternion.values[0] = Q0Q1_w
     final_quaternion.values[1] = Q0Q1_x
@@ -125,11 +139,20 @@ class Quaternion:
 
 
 def main():
-  elev = 0.0 # elevation 0 is the line of the horizon
-  elevRad = elev * np.pi / 180.0
-  r = range(-45, 46, 5)
-  xVanish = np.zeros(np.size(r))
-  yVanish = np.zeros(np.size(r))
+  w = 1440.0
+  h = 2418.0
+  f = 1.0 # Focal length in mm, AoV=90
+
+  sx =  w / 2.0
+  sy =  h / 2.0
+  tx =  w / 2.0
+  ty =  h / 2.0
+
+  # initialize the figure with the screen size (w, h)
+  plt.figure()
+  plt.xlim(-w / 2.0, w / 2.0)
+  plt.ylim(-h / 2.0, h / 2.0)
+  plt.gca().set_aspect('equal')
 
   # Building the rotation matrix
   phoneRotationMatrix = np.eye(4)
@@ -142,40 +165,44 @@ def main():
   phoneRotationQuaternion.getQuaternionFromVector(phoneOrientation)
   phoneRotationQuaternionConj.copy(phoneRotationQuaternion)
   phoneRotationQuaternionConj.conjugate()
-  resultQuaternion = Quaternion()
+
+  elev = 0.0 # elevation 0 is the line of the horizon
+  elevRad = elev * np.pi / 180.0
+  azRange = range(50, 131, 5)
+  xVanish = np.zeros(np.size(azRange))
+  yVanish = np.zeros(np.size(azRange))
 
   # compute points of the horizon
   idx = 0
-  for az in r:
-    azRad = az * np.pi / 180
-    z = np.cos(elevRad) * np.cos(azRad)
-    x = np.cos(elevRad) * np.sin(azRad)
-    y = np.sin(elevRad)
+  for az in azRange:
+    azRad = float(az) * np.pi / 180.0
+    x = np.cos(elevRad) * np.cos(azRad)
+    y = np.cos(elevRad) * np.sin(azRad)
+    z = np.sin(elevRad)
 
     #transform the vector with quaternion
-    x1, y1 = transformPoint(x, y, z, phoneRotationQuaternion, phoneRotationQuaternionConj)
-    xVanish[idx] = x1
-    yVanish[idx] = y1
-    idx += 1
+    x1, y1, valid = transformPoint(x, y, z, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
+    if(valid):
+      xVanish[idx] = x1
+      yVanish[idx] = y1
+      idx += 1
 
-  # Compute the point corresponding
-  elevRad = 30.0 * np.pi / 180.0
-  azRad = 30.0 * np.pi / 180.0
-  altitude = 100.0
-  zairplane = altitude * np.cos(elevRad) * np.cos(azRad)
-  xairplane = altitude * np.cos(elevRad) * np.sin(azRad)
-  yairplane = altitude * np.sin(elevRad)
-  xpVanish, ypVanish = transformPoint(xairplane, yairplane, zairplane, phoneRotationQuaternion, phoneRotationQuaternionConj)
-  
-  plt.figure()
-  plt.plot(xVanish, yVanish)
+  plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
 
-  circle = plt.Circle((xpVanish, ypVanish), 0.01, color='b')
+  # Compute the point corresponding to an airplain
+  elevRad = 10.0 * np.pi / 180.0
+  azRad = 90.0 * np.pi / 180.0
+  altitude = 1000.0
+  xairplane = altitude * np.cos(elevRad) * np.cos(azRad)
+  yairplane = altitude * np.cos(elevRad) * np.sin(azRad)
+  zairplane = altitude * np.sin(elevRad)
+  xpVanish, ypVanish, valid = transformPoint(xairplane, yairplane, zairplane, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
+  circle = plt.Circle((xpVanish, ypVanish), 20.0, color='b')
   plt.gca().add_patch(circle)
   plt.show()
 
 
-def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj):
+def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj, sx, sy, tx, ty):
   resultQuaternion = Quaternion()
   resultQuaternion.values[0] = 0.0
   resultQuaternion.values[1] = x
@@ -187,15 +214,18 @@ def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj):
   yq1 = resultQuaternion.values[2]
   zq1 = resultQuaternion.values[3]
 
-  if (np.abs(zq1) > 0.0):
-    x1 = xq1 / zq1
-    y1 = yq1 / zq1
-  else:
-    x1 = 0.0 # not sure it's the right choice; is a point out of the screen (to prevent visualization) a better choice?
-    y1 = 0.0 # not sure it's the right choice; is a point out of the screen (to prevent visualization) a better choice?
-    
-  return x1, y1
+  x1 = xq1
+  y1 = zq1
+  z1 = yq1
 
+  valid = False
+  if(z1 > 0.0):
+    valid = True
+
+  x1 = (x1 / z1) * sx
+  y1 = (y1 / z1) * sy
+
+  return x1, y1, valid
 
 
 def getPhoneOrientation():
@@ -208,8 +238,8 @@ def getPhoneOrientation():
     rotation vector with 3 entries
   """
   phoneOrientation = RotationVector()
-  st = np.sin(-30.0*np.pi/180.0)
-  phoneOrientation.values = np.array([0.0, st, 0.0])
+  st = np.sin(10.0 * np.pi / 180.0 / 2.0)
+  phoneOrientation.values = np.array([st, 0.0, 0.0]) # X, Y, Z in sensor frame
   return phoneOrientation
 
 
