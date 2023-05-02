@@ -41,33 +41,38 @@ class Quaternion:
     """
     Get Quaternion from a 3 component rotation vector
     See https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/hardware/SensorManager.java
+    See https://developer.android.com/reference/android/hardware/SensorManager#getQuaternionFromVector(float[],%20float[])
     The method getQuaternionFromVector (using code for rotation vector with 3 entries, consistent with SkyMAP)
     
     input: rotation vector with 3 entries
     output: initialize the quaternion instance "values" with the coefficients 
             of the quaternion corresponding to the provided rotation vector
     """
-    rv = rotationVector
-    nonZeroNum = 0.0
-    if(np.abs(rv.values[0]) > 1e-9):
-      nonZeroNum = nonZeroNum + 1.0
-    if(np.abs(rv.values[1]) > 1e-9):
-      nonZeroNum = nonZeroNum + 1.0
-    if(np.abs(rv.values[2]) > 1e-9):
-      nonZeroNum = nonZeroNum + 1.0
-
-    if(nonZeroNum > 0):
-      self.values[0] = 1.0 - (rv.values[0] * rv.values[0] + rv.values[1] * rv.values[1] + rv.values[2] * rv.values[2]) / nonZeroNum
-      self.values[0] = np.sqrt(self.values[0])
-      self.values[1] = rv.values[0]
-      self.values[2] = rv.values[1]
-      self.values[3] = rv.values[2]
+    q1 = rotationVector.values[0]
+    q2 = rotationVector.values[1]
+    q3 = rotationVector.values[2]
+    q0 = 1.0 - q1 * q1 - q2 * q2 - q3 * q3
+    
+    if(q0 > 0.0):
+      q0 = np.sqrt(q0)
     else:
-      self.values[0] = 1.0
-      self.values[1] = 0.0
-      self.values[2] = 0.0
-      self.values[3] = 0.0
+      q0 = 0.0
+
+    self.values[0] = q0
+    self.values[1] = q1
+    self.values[2] = q2
+    self.values[3] = q3
+
       
+  def invert(self):
+    self.conjugate()
+    res = Quaternion.multiply(self, self)
+    mod2 = res[0]
+    self.values[0] = self.values[0] / mod2
+    self.values[1] = self.values[1] / mod2
+    self.values[2] = self.values[2] / mod2
+    self.values[3] = self.values[3] / mod2
+    
   
   def conjugate(self):
     # values[0] i.e. W is unchanded when conjugating
@@ -126,8 +131,7 @@ class Quaternion:
     Q0Q1_z = w0 * z1 + x0 * y1 - y0 * x1 + z0 * w1
      
     # Create a 4 element array containing the final quaternion
-    # original code of Android: suggests that values[0] is W (the scalar of the quaternion)
-    # np.array([Q0Q1_w, Q0Q1_x, Q0Q1_y, Q0Q1_z])
+    # values[0] is the scalar, rest is the vector part x, y, z
 
     final_quaternion =Quaternion()
     final_quaternion.values[0] = Q0Q1_w
@@ -158,7 +162,7 @@ def main():
   phoneRotationMatrix = np.eye(4)
   phoneOrientation = getPhoneOrientation()
   phoneRotationMatrix = getRotationMatrixFromVector(phoneOrientation)
-
+  
   # Build the rotation quaternion  
   phoneRotationQuaternion = Quaternion()
   phoneRotationQuaternionConj = Quaternion()
@@ -181,13 +185,23 @@ def main():
     z = np.sin(elevRad)
 
     #transform the vector with quaternion
-    x1, y1, valid = transformPoint(x, y, z, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
+    x1, y1, x1q, y1q, z1q, valid = transformPoint(x, y, z, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
     if(valid):
       xVanish[idx] = x1
       yVanish[idx] = y1
       idx += 1
 
+    # transform the vector with rotation matrix
+    # enable this code to compare the results. Rotation matrix must be built outside of the loop
+    # v = np.array([x, y, z, 1])
+    # vt = phoneRotationMatrix.dot(v)
+    # x1rm = vt[0]
+    # y1rm = vt[1]
+    # z1rm = vt[2]
+    # print("x: ", x1rm-x1q, "y: ", y1rm-y1q, "z: ", z1rm-z1q)
+
   plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
+  
 
   # Compute the point corresponding to an airplain
   elevRad = 10.0 * np.pi / 180.0
@@ -196,13 +210,21 @@ def main():
   xairplane = altitude * np.cos(elevRad) * np.cos(azRad)
   yairplane = altitude * np.cos(elevRad) * np.sin(azRad)
   zairplane = altitude * np.sin(elevRad)
-  xpVanish, ypVanish, valid = transformPoint(xairplane, yairplane, zairplane, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
+  xpVanish, ypVanish, x1q, y1q, z1q, valid = transformPoint(xairplane, yairplane, zairplane, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
   circle = plt.Circle((xpVanish, ypVanish), 20.0, color='b')
   plt.gca().add_patch(circle)
   plt.show()
 
 
 def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj, sx, sy, tx, ty):
+  """
+  Do the transformation by computing  qvq'
+  Assumption not checked by the code:
+    the rotation quaternion is well formed (unitary) so that it is not needed to
+    compute the inverse of q but it is sufficient to use the conjugate.
+  NOTE: xq1, yq1, zq1 are returned only for debug. No need of them in the production code
+
+  """
   resultQuaternion = Quaternion()
   resultQuaternion.values[0] = 0.0
   resultQuaternion.values[1] = x
@@ -225,7 +247,7 @@ def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj, sx, sy, 
   x1 = (x1 / z1) * sx
   y1 = (y1 / z1) * sy
 
-  return x1, y1, valid
+  return x1, y1, xq1, yq1, zq1, valid
 
 
 def getPhoneOrientation():
@@ -235,11 +257,35 @@ def getPhoneOrientation():
   Returns
   -------
   phoneOrientation : TYPE_ROTATION_VECTOR
-    rotation vector with 3 entries
+    rotation vector with 3 entries composed by a normalized vector with 
+    components(vx, vy, vz) defining the rotation axes, scaled by the 
+    sin of the rotation angle. This construction justifies how the 
+    getRotationMatrixFromVector and getQuaternionFromVector work.
+    NOTE: when the angle is zero the rotation axe is irrelevant and the 
+    returned rotation vector is zero
   """
   phoneOrientation = RotationVector()
-  st = np.sin(10.0 * np.pi / 180.0 / 2.0)
-  phoneOrientation.values = np.array([st, 0.0, 0.0]) # X, Y, Z in sensor frame
+  
+  # Axis definition
+  vx = 0.0
+  vy = 0.0
+  vz = 1.0
+  # Angle definition
+  angle = 0.0
+  
+  if (angle == 0.0): # to avoid div by zero when axes and angle are all zero
+    vx = 0.0
+    vy = 0.0
+    vz = 0.0
+  else:
+    # normalize axes
+    mod2 = np.sqrt(vx*vx + vy*vy + vz*vz)
+    st = np.sin(angle * np.pi / 180.0)
+    vx = vx * st / mod2
+    vy = vy * st / mod2
+    vz = vz * st / mod2
+  
+  phoneOrientation.values = np.array([vx, vy, vz])
   return phoneOrientation
 
 
