@@ -148,7 +148,7 @@ def main():
   f = 1.0 # Focal length in mm, AoV=90
 
   sx =  w / 2.0
-  sy =  h / 2.0
+  sy = -h / 2.0
   tx =  w / 2.0
   ty =  h / 2.0
 
@@ -238,10 +238,10 @@ def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj, sx, sy, 
 
   x1 = xq1
   y1 = zq1
-  z1 = yq1
+  z1 = -yq1
 
   valid = False
-  if(z1 > 0.0):
+  if(z1 < 0.0):
     valid = True
 
   x1 = (x1 / z1) * sx
@@ -268,17 +268,17 @@ def getPhoneOrientation():
   
   # Axis definition
   vx = 0.0
-  vy = 0.0
-  vz = 1.0
+  vy = 1.0
+  vz = 0.0
   # Angle definition
-  angle = 0.0
+  angle = 10.0
   
   if (angle == 0.0): # to avoid div by zero when axes and angle are all zero
     vx = 0.0
     vy = 0.0
     vz = 0.0
   else:
-    # normalize axes
+    # normalize axes andmultiply by sin angle
     mod2 = np.sqrt(vx*vx + vy*vy + vz*vz)
     st = np.sin(angle * np.pi / 180.0)
     vx = vx * st / mod2
