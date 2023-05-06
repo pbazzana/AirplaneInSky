@@ -227,7 +227,7 @@ def main():
   # Usato aeroporto urbe per test con un aereo a una certa altitudine
   latitudePlane  = 41.95232550018577
   longitudePlane = 12.505142833005202
-  altitudePlane = 500
+  altitudePlane = 3000.0
   # abbreviazione xp, yp, zp
   xp, yp, zp = computePointInEarthFrame(latitudePlane, longitudePlane, altitudePlane)
   posPl = np.array([xp, yp, zp])
@@ -238,13 +238,14 @@ def main():
   r5 = distance(pos7c, posPl)
   r3 = distance(pos7c, posPlground)
   planeEl = np.arccos(r3 / r5)
+  print("r3 = ", r3, "r5 = ", r5)
 
   d1 = r3
   x1, y1, z1 = computePointInEarthFrame(latSettecamini, longitudePlane, 0.0)
   deltay = y1 - y7c
   deltax = x1 - x7c
   alfa = np.arctan2(deltax, deltay)
-  print(d1, alfa * 180 / np.pi, planeEl * 180 / np.pi)
+  print(d1, "azimuth = ", alfa * 180 / np.pi, "elevation = ", planeEl * 180 / np.pi)
   
   elevRad = planeEl
   azRad = alfa 
@@ -315,7 +316,7 @@ def getPhoneOrientation():
   vy = 0.0
   vz = 1.0
   # Angle definition
-  angle = -80.0
+  angle = -77.0
   
   if (angle == 0.0): # to avoid div by zero when axes and angle are all zero
     vx = 0.0
@@ -410,14 +411,18 @@ def computePointInEarthFrame(lat, lon, alt):
   la = lat * np.pi /180.0
   lo = lon * np.pi /180.0
   r = 6373044.737 # earth radius. Unit: meters
+  r = r + alt
   x = r * np.cos(la) * np.cos(lo)
   y = r * np.cos(la) * np.sin(lo)
-  z = r * np.sin(la) + alt
+  z = r * np.sin(la)
   return x, y, z
 
 
 def distance(P1, P2):
-  d = np.sqrt((P1[0]-P2[0])*(P1[0]-P2[0]) + (P1[1]-P2[1])*(P1[1]-P2[1]) + (P1[2]-P2[2])*(P1[2]-P2[2]))
+  q1 = (P1[0]-P2[0]) * (P1[0]-P2[0])
+  q2 = (P1[1]-P2[1]) * (P1[1]-P2[1])
+  q3 = (P1[2]-P2[2]) * (P1[2]-P2[2])
+  d = np.sqrt(q1 + q2 + q3)
   return d
 
 
