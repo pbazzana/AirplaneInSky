@@ -154,8 +154,8 @@ def main():
 
   # initialize the figure with the screen size (w, h)
   plt.figure()
-  plt.xlim(-w / 2.0, w / 2.0)
-  plt.ylim(-h / 2.0, h / 2.0)
+  plt.xlim(-tx, tx)
+  plt.ylim(-ty, ty)
   plt.gca().set_aspect('equal')
 
   # Building the rotation matrix
@@ -175,6 +175,17 @@ def main():
   azRange = range(50, 131, 5)
   xVanish = np.zeros(np.size(azRange))
   yVanish = np.zeros(np.size(azRange))
+  
+  # phoneOrientation.values[0] = 0.021908345
+  # phoneOrientation.values[1] = 0.009795881
+  # phoneOrientation.values[2] = 0.58035123
+  # phoneRotationQuaternion.getQuaternionFromVector(phoneOrientation)
+  # print("Quat: ", phoneRotationQuaternion.values[0], phoneRotationQuaternion.values[1], phoneRotationQuaternion.values[2], phoneRotationQuaternion.values[3])
+  # phoneRotationQuaternionConj.copy(phoneRotationQuaternion)
+  # phoneRotationQuaternionConj.conjugate()
+  # x1, y1, x1q, y1q, z1q, valid = transformPoint(3.0, 3.0, 0.0, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
+  # print(x1q, y1q, z1q)
+
 
   # compute points of the horizon
   idx = 0
@@ -201,12 +212,44 @@ def main():
     # print("x: ", x1rm-x1q, "y: ", y1rm-y1q, "z: ", z1rm-z1q)
 
   plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
-  
 
-  # Compute the point corresponding to an airplain
-  elevRad = 10.0 * np.pi / 180.0
-  azRad = 90.0 * np.pi / 180.0
-  altitude = 1000.0
+
+
+  # Usato Settecamini per test
+  latSettecamini  = 41.9401565969652 
+  longSettecamini = 12.621029627805704
+  altSettecamini = 0.0
+  # altitude Settecamini = ?
+  # abbreviazione x7c, y7c, z7c
+  x7c, y7c, z7c = computePointInEarthFrame(latSettecamini, longSettecamini, altSettecamini)
+  pos7c = np.array([x7c, y7c, z7c])
+  
+  # Usato aeroporto urbe per test con un aereo a una certa altitudine
+  latitudePlane  = 41.95232550018577
+  longitudePlane = 12.505142833005202
+  altitudePlane = 500
+  # abbreviazione xp, yp, zp
+  xp, yp, zp = computePointInEarthFrame(latitudePlane, longitudePlane, altitudePlane)
+  posPl = np.array([xp, yp, zp])
+  
+  xpg, ypg, zpg = computePointInEarthFrame(latitudePlane, longitudePlane, 0.0)
+  posPlground = np.array([xpg, ypg, zpg])
+  
+  r5 = distance(pos7c, posPl)
+  r3 = distance(pos7c, posPlground)
+  planeEl = np.arccos(r3 / r5)
+
+  d1 = r3
+  x1, y1, z1 = computePointInEarthFrame(latSettecamini, longitudePlane, 0.0)
+  deltay = y1 - y7c
+  deltax = x1 - x7c
+  alfa = np.arctan2(deltax, deltay)
+  print(d1, alfa * 180 / np.pi, planeEl * 180 / np.pi)
+  
+  elevRad = planeEl
+  azRad = alfa 
+  altitude = altitudePlane
+  
   xairplane = altitude * np.cos(elevRad) * np.cos(azRad)
   yairplane = altitude * np.cos(elevRad) * np.sin(azRad)
   zairplane = altitude * np.sin(elevRad)
@@ -263,15 +306,16 @@ def getPhoneOrientation():
     getRotationMatrixFromVector and getQuaternionFromVector work.
     NOTE: when the angle is zero the rotation axe is irrelevant and the 
     returned rotation vector is zero
+    TYPE_ROTATION_VECTOR:   [x*sin(alpha), y*sin(alpha), z*sin(alpha)[)]
   """
   phoneOrientation = RotationVector()
   
   # Axis definition
   vx = 0.0
-  vy = 1.0
-  vz = 0.0
+  vy = 0.0
+  vz = 1.0
   # Angle definition
-  angle = 10.0
+  angle = -80.0
   
   if (angle == 0.0): # to avoid div by zero when axes and angle are all zero
     vx = 0.0
@@ -279,11 +323,11 @@ def getPhoneOrientation():
     vz = 0.0
   else:
     # normalize axes andmultiply by sin angle
-    mod2 = np.sqrt(vx*vx + vy*vy + vz*vz)
-    st = np.sin(angle * np.pi / 180.0)
-    vx = vx * st / mod2
-    vy = vy * st / mod2
-    vz = vz * st / mod2
+    modV = np.sqrt(vx*vx + vy*vy + vz*vz)
+    st = np.sin(angle * np.pi / 180.0 / 2.0)
+    vx = vx * st / modV
+    vy = vy * st / modV
+    vz = vz * st / modV
   
   phoneOrientation.values = np.array([vx, vy, vz])
   return phoneOrientation
@@ -343,6 +387,38 @@ def getRotationMatrixFromVector(rotationVector):
   rotationMatrix[3, 2] = 0.0
   rotationMatrix[3, 3] = 1.0
   return rotationMatrix
+
+
+def computePointInEarthFrame(lat, lon, alt):
+  """
+  Return the coordinates of the point in the earth frame given latitude and longitude
+  Note: by now neglect altitude information. 
+  The observers are assumed to be at the same altitude.
+
+  Parameters
+  ----------
+  lat : latitude angle.  Unit: deg
+  log : longitude angle. Unit: deg
+
+  Returns
+  -------
+  x : coordinate x of the point in the earth frame. Unit: m
+  y : coordinate y of the point in the earth frame. Unit: m
+  z : coordinate z of the point in the earth frame. Unit: m
+
+  """
+  la = lat * np.pi /180.0
+  lo = lon * np.pi /180.0
+  r = 6373044.737 # earth radius. Unit: meters
+  x = r * np.cos(la) * np.cos(lo)
+  y = r * np.cos(la) * np.sin(lo)
+  z = r * np.sin(la) + alt
+  return x, y, z
+
+
+def distance(P1, P2):
+  d = np.sqrt((P1[0]-P2[0])*(P1[0]-P2[0]) + (P1[1]-P2[1])*(P1[1]-P2[1]) + (P1[2]-P2[2])*(P1[2]-P2[2]))
+  return d
 
 
 if __name__ == "__main__":
