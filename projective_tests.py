@@ -235,8 +235,8 @@ def main():
   xpg, ypg, zpg = computePointInEarthFrame(latitudePlane, longitudePlane, 0.0)
   posPlground = np.array([xpg, ypg, zpg])
   
-  r5 = distance(pos7c, posPl)
-  r3 = distance(pos7c, posPlground)
+  r5 = pointDistance(pos7c, posPl)
+  r3 = pointDistance(pos7c, posPlground)
   planeEl = np.arccos(r3 / r5)
   print("r3 = ", r3, "r5 = ", r5)
 
@@ -245,11 +245,16 @@ def main():
   deltay = y1 - y7c
   deltax = x1 - x7c
   alfa = np.arctan2(deltax, deltay)
-  print(d1, "azimuth = ", alfa * 180 / np.pi, "elevation = ", planeEl * 180 / np.pi)
+  print("distance = ", d1, "azimuth = ", alfa * 180 / np.pi, "elevation = ", planeEl * 180 / np.pi)
   
   elevRad = planeEl
   azRad = alfa 
   altitude = altitudePlane
+  
+  
+  ld = lineDistance(0.0, 0.0, 0.0, np.pi/2.0, np.array([0, 0, 5]))
+  print("line dist = ", ld)
+  
   
   xairplane = altitude * np.cos(elevRad) * np.cos(azRad)
   yairplane = altitude * np.cos(elevRad) * np.sin(azRad)
@@ -418,12 +423,46 @@ def computePointInEarthFrame(lat, lon, alt):
   return x, y, z
 
 
-def distance(P1, P2):
+def pointDistance(P1, P2):
   q1 = (P1[0]-P2[0]) * (P1[0]-P2[0])
   q2 = (P1[1]-P2[1]) * (P1[1]-P2[1])
   q3 = (P1[2]-P2[2]) * (P1[2]-P2[2])
   d = np.sqrt(q1 + q2 + q3)
   return d
+
+
+def lineDistance(az1, el1, az2, el2, Observer2InFrame1):
+  x2 = Observer2InFrame1[0]
+  y2 = Observer2InFrame1[1]
+  z2 = Observer2InFrame1[2]
+  
+  a = 1.0 + np.sin(el1) * np.sin(el1)
+  b = np.cos(az1) * np.cos(az2) + np.sin(az1) * np.sin(az2) + np.sin(el1) * np.sin(el2)
+  c = x2 * np.cos(az1) + y2 * np.sin(az1) + z2 * np.sin(el1)
+  d = 1.0 + np.sin(el2) * np.sin(el2)
+  e = b
+  f = x2 * np.cos(az2) + y2 * np.sin(az2) + z2 * np.sin(el2)
+  
+  k2 = (f * a - c * e) / (b * e - d * a)
+  k1 = (b * k2 + c) / a
+
+  xr1 = k1 * np.cos(az1)
+  yr1 = k1 * np.sin(az1)
+  zr1 = k1 * np.sin(el1)
+  P1 = np.array([xr1, yr1, zr1])
+
+  xr2 = k2 * np.cos(az2) + x2
+  yr2 = k2 * np.sin(az2) + y2
+  zr2 = k2 * np.sin(el2) + z2
+  P2 = np.array([xr2, yr2, zr2])
+  
+  #r1 = np.array([np.cos(az1), np.sin(az1), np.sin(el1)])
+  #r2 = np.array([np.cos(az2), np.sin(az2), np.sin(el2)])
+  #P1P2 = np.array([xr1-xr2, yr1-yr2, zr1-zr2])
+  
+  dist = pointDistance(P1, P2)
+  
+  return dist
 
 
 if __name__ == "__main__":
