@@ -24,6 +24,13 @@ class RotationVector():
     self.values = np.array([0.0, 0.0, 0.0, 0.0])
 
 
+class GeoCoord():
+  def __init__(self, lat, long, alt):
+    self.latitude  = lat   # rad
+    self.longitude = long  # rad
+    self.altitude  = alt   # m
+
+
 class Quaternion:
   """
   Quaternion in Android lib is composed by (please confirm !!!!):
@@ -213,52 +220,75 @@ def main():
 
   plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
 
-
-
+  deg2rad = np.pi / 180.0
+  rad2deg = 180.0 / np.pi
+  
   # Usato Settecamini per test
-  latSettecamini  = 41.9401565969652 
-  longSettecamini = 12.621029627805704
-  altSettecamini = 0.0
-  # altitude Settecamini = ?
-  # abbreviazione x7c, y7c, z7c
-  x7c, y7c, z7c = computePointInEarthFrame(latSettecamini, longSettecamini, altSettecamini)
+  latSettecamini  = 41.9401565969652 * deg2rad
+  longSettecamini = 12.621029627805704 * deg2rad
+  altSettecamini = 0.0  # altitude Settecamini = ?
+  settecaminiGC = GeoCoord(latSettecamini, longSettecamini, altSettecamini)
+  x7c, y7c, z7c = getPointInEarthFrameFromGeoCoord(settecaminiGC)
   pos7c = np.array([x7c, y7c, z7c])
-  
+
   # Usato aeroporto urbe per test con un aereo a una certa altitudine
-  latitudePlane  = 41.95232550018577
-  longitudePlane = 12.505142833005202
+  latitudePlane  = 41.95232550018577 * deg2rad
+  longitudePlane = 12.505142833005202 * deg2rad
   altitudePlane = 3000.0
-  # abbreviazione xp, yp, zp
-  xp, yp, zp = computePointInEarthFrame(latitudePlane, longitudePlane, altitudePlane)
-  posPl = np.array([xp, yp, zp])
-  
-  xpg, ypg, zpg = computePointInEarthFrame(latitudePlane, longitudePlane, 0.0)
-  posPlground = np.array([xpg, ypg, zpg])
-  
-  r5 = pointDistance(pos7c, posPl)
-  r3 = pointDistance(pos7c, posPlground)
+  planeGC = GeoCoord(latitudePlane, longitudePlane, altitudePlane)
+  xp, yp, zp = getPointInEarthFrameFromGeoCoord(planeGC)
+  posPlane = np.array([xp, yp, zp])
+
+  planeProjToGroundGC = GeoCoord(latitudePlane, longitudePlane, 0.0)
+  xpg, ypg, zpg = getPointInEarthFrameFromGeoCoord(planeProjToGroundGC)
+  posPlaneProjToGround = np.array([xpg, ypg, zpg])
+
+  r5 = pointPointDistance(pos7c, posPlane)
+  r3 = pointPointDistance(pos7c, posPlaneProjToGround)
   planeEl = np.arccos(r3 / r5)
   print("r3 = ", r3, "r5 = ", r5)
 
   d1 = r3
-  x1, y1, z1 = computePointInEarthFrame(latSettecamini, longitudePlane, 0.0)
-  deltay = y1 - y7c
+  p1GC = GeoCoord(latSettecamini, longitudePlane, 0.0)
+  x1, y1, z1 = getPointInEarthFrameFromGeoCoord(p1GC)
+  posp1GC = np.array([x1, y1, z1])
   deltax = x1 - x7c
-  alfa = np.arctan2(deltax, deltay)
-  print("distance = ", d1, "azimuth = ", alfa * 180 / np.pi, "elevation = ", planeEl * 180 / np.pi)
+  deltay = y1 - y7c
+  planeAz = np.arctan2(deltax, deltay)
+  print("distance = ", d1, "azimuth = ", planeAz * rad2deg, "elevation = ", planeEl * rad2deg)
   
-  elevRad = planeEl
-  azRad = alfa 
-  altitude = altitudePlane
-  
-  
-  ld = lineDistance(0.0, 0.0, 0.0, np.pi/2.0, np.array([0, 0, 5]))
-  print("line dist = ", ld)
-  
-  
-  xairplane = altitude * np.cos(elevRad) * np.cos(azRad)
-  yairplane = altitude * np.cos(elevRad) * np.sin(azRad)
-  zairplane = altitude * np.sin(elevRad)
+  va = posp1GC - pos7c
+  vb = posPlaneProjToGround - pos7c
+  vc = posPlaneProjToGround - posp1GC
+  print("Check 1: va dot vd ", np.dot(va, vc))
+
+  testGC = GeoCoord(0.0, 0.0, 0.0)
+  Pdummy, v0, e0, n0 = pointInEarthFrameTest(testGC)
+  P1, v1, e1, n1 = pointInEarthFrameTest(settecaminiGC)
+  P2, v2, e2, n2 = pointInEarthFrameTest(planeProjToGroundGC)
+  P3, v3, e3, n3 = pointInEarthFrameTest(p1GC)
+  print(v1, e1, n1)
+  print(v2, e2, n2)
+  print(v3, e3, n3)
+
+
+
+# =============================================================================
+# 
+#   ld, P0, P1 = lineLineDistance(0.0, 0.0, np.pi/4.0, np.pi/4.0, np.array([5.0, 5.0, 5.0]))
+#   print("line-line dist = ", ld)
+# 
+#   pd = pointLineDistance(np.pi/4.0, np.pi/4.0, np.array([10.0, 10.0, 11.0]))
+#   print("line-point dist = ", pd)
+# 
+# =============================================================================
+
+  compatible = checkAirplane(planeAz, planeEl, settecaminiGC, planeGC)
+  print("compatible = ", compatible)
+
+  xairplane = altitudePlane * np.cos(planeEl) * np.cos(planeAz)
+  yairplane = altitudePlane * np.cos(planeEl) * np.sin(planeAz)
+  zairplane = altitudePlane * np.sin(planeEl)
   xpVanish, ypVanish, x1q, y1q, z1q, valid = transformPoint(xairplane, yairplane, zairplane, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
   circle = plt.Circle((xpVanish, ypVanish), 20.0, color='b')
   plt.gca().add_patch(circle)
@@ -395,16 +425,14 @@ def getRotationMatrixFromVector(rotationVector):
   return rotationMatrix
 
 
-def computePointInEarthFrame(lat, lon, alt):
+def getPointInEarthFrameFromGeoCoord(GeoCoord):
   """
   Return the coordinates of the point in the earth frame given latitude and longitude
-  Note: by now neglect altitude information. 
-  The observers are assumed to be at the same altitude.
 
   Parameters
   ----------
-  lat : latitude angle.  Unit: deg
-  log : longitude angle. Unit: deg
+  lat : latitude angle.  Unit: rad
+  log : longitude angle. Unit: rad
 
   Returns
   -------
@@ -413,17 +441,15 @@ def computePointInEarthFrame(lat, lon, alt):
   z : coordinate z of the point in the earth frame. Unit: m
 
   """
-  la = lat * np.pi /180.0
-  lo = lon * np.pi /180.0
   r = 6373044.737 # earth radius. Unit: meters
-  r = r + alt
-  x = r * np.cos(la) * np.cos(lo)
-  y = r * np.cos(la) * np.sin(lo)
-  z = r * np.sin(la)
+  r = r + GeoCoord.altitude
+  x = r * np.cos(GeoCoord.latitude) * np.cos(GeoCoord.longitude)
+  y = r * np.cos(GeoCoord.latitude) * np.sin(GeoCoord.longitude)
+  z = r * np.sin(GeoCoord.latitude)
   return x, y, z
 
 
-def pointDistance(P1, P2):
+def pointPointDistance(P1, P2):
   q1 = (P1[0]-P2[0]) * (P1[0]-P2[0])
   q2 = (P1[1]-P2[1]) * (P1[1]-P2[1])
   q3 = (P1[2]-P2[2]) * (P1[2]-P2[2])
@@ -431,7 +457,41 @@ def pointDistance(P1, P2):
   return d
 
 
-def lineDistance(az1, el1, az2, el2, Observer2InFrame1):
+def lineLineDistance(az1, el1, az2, el2, Observer2InFrame1):
+  """
+  Compute the distance between 2 lines in 3D space.
+  Line 1 passes in the origin of the observer 1 assuming that 
+  the main frame is placed on the Observer 1 (0, 0, 0)
+  Line 2 passes in the origin of the observer 2.
+  Observer 2 is in position "Observer2InFrame1" in the frame of the Observer1.
+  Compute method: in order to be the min distance vector, the vector connecting 
+  a generic point on Line 1 and a generic point on Line 2, shall be orthogonal 
+  to both the vector identifying the Line 1 and the vector identifying the Line 2.
+  The distance computed can be used as the distance between 2 observations.
+
+  Parameters
+  ----------
+  az1 : float
+    Azimuth of the observation made by observer 1.
+  el1 : float
+    Elevation of the observation made by observer 1.
+  az2 : float
+    Azimuth of the observation made by observer 2.
+  el2 : float
+    Elevation of the observation made by observer 2.
+  Observer2InFrame1 : float array
+    Contains x, y, z coordinates of the Observer 2 in the frame of Observer 1.
+
+  Returns
+  -------
+  dist : float
+    distance between the 2 lines
+  P0 : float array
+    Contains x, y, z coordinates of the estimate of Observation 1.
+  P1 : float array
+    Contains x, y, z coordinates of the estimate of Observation 2.
+
+  """
   x2 = Observer2InFrame1[0]
   y2 = Observer2InFrame1[1]
   z2 = Observer2InFrame1[2]
@@ -443,26 +503,182 @@ def lineDistance(az1, el1, az2, el2, Observer2InFrame1):
   e = b
   f = x2 * np.cos(az2) + y2 * np.sin(az2) + z2 * np.sin(el2)
   
-  k2 = (f * a - c * e) / (b * e - d * a)
+  # In general some check should be necessary to avoid div by zero.
+  # In reality the fact that the observers are distinct should always
+  # prevent the div by zero conditon. Check skipped
+  k2 = (a * f - c * e) / (b * e - a * d)
   k1 = (b * k2 + c) / a
 
-  xr1 = k1 * np.cos(az1)
-  yr1 = k1 * np.sin(az1)
-  zr1 = k1 * np.sin(el1)
-  P1 = np.array([xr1, yr1, zr1])
+  xr0 = k1 * np.cos(az1)
+  yr0 = k1 * np.sin(az1)
+  zr0 = k1 * np.sin(el1)
+  P0 = np.array([xr0, yr0, zr0])
 
-  xr2 = k2 * np.cos(az2) + x2
-  yr2 = k2 * np.sin(az2) + y2
-  zr2 = k2 * np.sin(el2) + z2
-  P2 = np.array([xr2, yr2, zr2])
+  xr1 = k2 * np.cos(az2) + x2
+  yr1 = k2 * np.sin(az2) + y2
+  zr1 = k2 * np.sin(el2) + z2
+  P1 = np.array([xr1, yr1, zr1])
   
-  #r1 = np.array([np.cos(az1), np.sin(az1), np.sin(el1)])
-  #r2 = np.array([np.cos(az2), np.sin(az2), np.sin(el2)])
-  #P1P2 = np.array([xr1-xr2, yr1-yr2, zr1-zr2])
+  dist = pointPointDistance(P0, P1)
+  return dist, P0, P1
+
+
+def pointLineDistance(az, el, P0):
+  """
+  Compute the distance between a point and a line in 3D space
+  The Line passes in the position of the Observer (origin of the frame),
+  assuming that the main frame placed in the Observer position i.e. (0, 0, 0)
+  The point P0 is the 3D point from Flightradar which identifies the airplane 
+  position in the frame of the Observer.
+  Compute method: in order to be the min distance vector, the vector connecting 
+  a generic point on the Line and the input point, shall be orthogonal to the 
+  vector identifying the Line 1.
+
+  Parameters
+  ----------
+  az : float
+    Azimuth of the observation made by Observer. Unit: rad
+  el : float
+    Elevation of the observation made by Observer.  Unit: rad
+  P0 : float array
+    Contains x, y, z coordinates of the point.  Unit: m
+
+  Returns
+  -------
+  dist : float
+    distance between the point P0 and the line (airplane - observation disatance)
+  """
+  x0 = P0[0]
+  y0 = P0[1]
+  z0 = P0[2]
   
-  dist = pointDistance(P1, P2)
+  a = 1.0 + np.sin(el) * np.sin(el)
+  b = x0 * np.cos(az) + y0 * np.sin(az) + z0 * np.sin(el)
+  k = b / a
   
+  x1 = k * np.cos(az)
+  y1 = k * np.sin(az)
+  z1 = k * np.sin(el)
+  P1 = np.array([x1, y1, z1])
+
+  dist = pointPointDistance(P0, P1)
+  print ("***", "\nP0 = ", P0[0], P0[1], P0[2], "\nP1 = ", P1[0], P1[1], P1[2], "\nDistance = ", dist, "\n***\n")
   return dist
+
+
+def checkUfo(az1, el1, GPS1, az2, el2, GPS2):
+  """
+  Check whether 2 observations are compatible with each other.
+  Supposed to run on cloud
+ 
+  Parameters
+  ----------
+  az1 : float
+    azimuth angle of UFO in the frame of observer 1.
+  el1 : float
+    elevation angle of UFO in the frame of observer 1.
+  GPS1 : float array
+    Contains latitude, longitude and altitude of observer 1 from GPS.
+  az2 : float
+    azimuth angle of UFO in the frame of observer 2.
+  el2 : float
+    elevation angle of UFO in the frame of observer 2.
+  GPS2 : float array
+    Contains latitude, longitude and altitude of observer 2 from GPS.
+
+  Returns
+  -------
+  compatible : bool
+    True if observation 1 and observation 2 are compatible.
+  latUfo : float
+    Latitude of the Ufo.
+  longUfo : float
+    Longitude of the Ufo.
+  altUfo : float
+    Altitude of the Ufo.
+  """
+  
+  compatible = True
+  latUfo = 0
+  longUfo = 0
+  altUfo = 0
+  
+  return compatible, latUfo, longUfo, altUfo
+
+
+def checkAirplane(azAirplaneFromObs, elAirplaneFromObs, GeoCoordObserver, GeoCoordAirplane):
+  """
+  Check whether 1 observations is compatible with Flightradar.
+  Supposed to run on the mobile (probably)
+  Steps:  
+    1) get local 3D coord of Airplane in the frame of the Observer
+       a) get coodinates of Observer in Earth Frame
+       b) get coodinates of Airplane in Earth Frame
+       c) compute the coordinates of the Airplane in the frame of the Observer
+    2) compute the distance between observation and airplane (pointLineDistance)
+    3) check if the observation is compatible with the Airplane
+ 
+  Parameters
+  ----------
+  azAirplaneFromObs : float. Unit: rad
+    azimuth angle of the airplane in the frame of the observer.
+  elAirplaneFromObs : float. Unit: rad
+    elevation angle of the airplane in the frame of the observer.
+  GeoCoordObserver : class GPS()
+    Contains latitude and longitude of observer 1 from GPS. Angles deg, altitude m
+  GeoCoordAirplane : class GPS()
+    Contains latitude, longitude and altitude from Flightradar. Angles deg, altitude m
+
+  Returns
+  -------
+  compatible : bool
+    True if observation 1 and observation 2 are compatible.
+
+  """
+  
+  xO, yO, zO = getPointInEarthFrameFromGeoCoord(GeoCoordObserver)
+  xA, yA, zA = getPointInEarthFrameFromGeoCoord(GeoCoordAirplane)
+  airplanePosInObsFrame = np.array([yA-yO, xA-xO, zA-zO])
+
+  ptLineDist = pointLineDistance(azAirplaneFromObs, elAirplaneFromObs, airplanePosInObsFrame)
+  
+  if(ptLineDist < 10.0):
+    compatible = True
+  else:
+    compatible = False
+
+  print("Observation to Airplane distance = ", ptLineDist)
+
+  return compatible
+
+
+def pointInEarthFrameTest(GeoCoord):
+  r = 6373044.737 # earth radius. Unit: meters
+  r = r + GeoCoord.altitude
+  x0 = r * np.cos(GeoCoord.latitude) * np.cos(GeoCoord.longitude)
+  y0 = r * np.cos(GeoCoord.latitude) * np.sin(GeoCoord.longitude)
+  z0 = r * np.sin(GeoCoord.latitude)
+  P0 = np.array([x0, y0, z0])
+  
+  # orthogonal to the surface of the sphere, pointing outside
+  gradf = np.array([2*x0, 2*y0, 2*z0])
+  v = gradf / np.sqrt(np.dot(gradf, gradf))
+  
+  # east is ortogonal to the normal to the surface without Z component
+  east = np.array([-2*y0, 2*x0, 0.0]) # orthogonal --> swap components, change sign of the first
+  e = east / np.sqrt(np.dot(east, east))
+
+  n = np.cross(v, e) 
+
+  P0 = np.array([x0, y0, z0])
+  
+  return P0, v, e, n
+  
+  
+  
+  
+  return x, y, z
+
 
 
 if __name__ == "__main__":
