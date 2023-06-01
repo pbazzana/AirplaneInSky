@@ -222,7 +222,7 @@ def main():
 
   plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
   
-  # Usato Settecamini per test
+  # Usato Settecamini come posizione primo osservatore
   latSettecamini  = 41.9401565969652 * deg2rad
   longSettecamini = 12.621029627805704 * deg2rad
   altSettecamini = 0.0  # altitude Settecamini = ?
@@ -241,22 +241,48 @@ def main():
   # ******************************************************************************
   TransformMatrix = getTransformationMatrix(settecaminiGC)
   posPlaneLoc = np.matmul(TransformMatrix, (posPlane - pos7c))
-  observedPlaneAz = np.arctan2(posPlaneLoc[1], posPlaneLoc[0])
-  observedPlaneEl = np.arctan2(posPlaneLoc[2], np.sqrt(posPlaneLoc[0] * posPlaneLoc[0] + posPlaneLoc[1] * posPlaneLoc[1]))
+  observer1PlaneAz = np.arctan2(posPlaneLoc[1], posPlaneLoc[0])
+  observer1PlaneEl = np.arctan2(posPlaneLoc[2], np.sqrt(posPlaneLoc[0] * posPlaneLoc[0] + posPlaneLoc[1] * posPlaneLoc[1]))
 
-  dist = pointPointDistance(posPlaneLoc, np.array([0.0, 0.0, 0.0]))
-  print("Position in local frame = ", posPlaneLoc)
-  print("Dist = ", dist, "Az = ", observedPlaneAz * rad2deg, "El = ", observedPlaneEl * rad2deg)
+  dist1 = pointPointDistance(posPlaneLoc, np.array([0.0, 0.0, 0.0]))
+  print("Position in local 7C frame = ", posPlaneLoc)
+  print("Dist = ", dist1, "Az = ", observer1PlaneAz * rad2deg, "El = ", observer1PlaneEl * rad2deg)
   # ******************************************************************************
   # END --> code only for test - Generates Az and El of a presumed observation
   # ******************************************************************************
 
-  compatible = checkAirplane(observedPlaneAz, observedPlaneEl, settecaminiGC, planeGC)
-  print("compatible = ", compatible)
+  compatible = checkAirplane(observer1PlaneAz, observer1PlaneEl, settecaminiGC, planeGC)
+  print("compatible with Flighradar = ", compatible)
 
-  xairplane = altitudePlane * np.cos(observedPlaneEl) * np.cos(observedPlaneAz)
-  yairplane = altitudePlane * np.cos(observedPlaneEl) * np.sin(observedPlaneAz)
-  zairplane = altitudePlane * np.sin(observedPlaneEl)
+
+  # Usato Colosseo come posizione secondo osservatore
+  latColosseo  = 41.89014792072482 * deg2rad
+  longColosseo = 12.492339876376782 * deg2rad
+  altColosseo = 0.0  # altitude altColosseo = ?
+  colosseoGC = GeoCoord(latColosseo, longColosseo, altColosseo)
+  posColosseo = getPointInEarthFrameFromGeoCoord(colosseoGC)
+
+  # ******************************************************************************
+  # BEGIN --> code only for test - Generates Az and El of a presumed observation
+  # ******************************************************************************
+  TransformMatrix = getTransformationMatrix(colosseoGC)
+  posPlaneLoc = np.matmul(TransformMatrix, (posPlane - posColosseo))
+  observer2PlaneAz = np.arctan2(posPlaneLoc[1], posPlaneLoc[0])
+  observer2PlaneEl = np.arctan2(posPlaneLoc[2], np.sqrt(posPlaneLoc[0] * posPlaneLoc[0] + posPlaneLoc[1] * posPlaneLoc[1]))
+
+  dist2 = pointPointDistance(posPlaneLoc, np.array([0.0, 0.0, 0.0]))
+  print("Position in local Colosseum frame = ", posPlaneLoc)
+  print("Dist = ", dist2, "Az = ", observer2PlaneAz * rad2deg, "El = ", observer2PlaneEl * rad2deg)
+  # ******************************************************************************
+  # END --> code only for test - Generates Az and El of a presumed observation
+  # ******************************************************************************
+
+  compatible, P0 = checkUfo(observer1PlaneAz, observer1PlaneEl, settecaminiGC, observer2PlaneAz, observer2PlaneEl, colosseoGC)
+  print("compatible with Ufo = ", compatible)
+
+  xairplane = altitudePlane * np.cos(observer1PlaneEl) * np.cos(observer1PlaneAz)
+  yairplane = altitudePlane * np.cos(observer1PlaneEl) * np.sin(observer1PlaneAz)
+  zairplane = altitudePlane * np.sin(observer1PlaneEl)
   xpVanish, ypVanish, x1q, y1q, z1q, valid = transformPoint(xairplane, yairplane, zairplane, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
   circle = plt.Circle((xpVanish, ypVanish), 20.0, color='b')
   plt.gca().add_patch(circle)
@@ -477,13 +503,13 @@ def lineLineDistance(az1, el1, az2, el2, Observer2InFrame1):
   k2 = (d - b * c) / (b * b - 1)
   k1 = k2 * b + c
 
-  xr0 = k1 * np.cos(az1)
-  yr0 = k1 * np.sin(az1)
+  xr0 = k1 * np.cos(el1) * np.cos(az1)
+  yr0 = k1 * np.cos(el1) * np.sin(az1)
   zr0 = k1 * np.sin(el1)
   P0 = np.array([xr0, yr0, zr0])
 
-  xr1 = k2 * np.cos(az2) + x2
-  yr1 = k2 * np.sin(az2) + y2
+  xr1 = k2 * np.cos(el2) * np.cos(az2) + x2
+  yr1 = k2 * np.cos(el2) * np.sin(az2) + y2
   zr1 = k2 * np.sin(el2) + z2
   P1 = np.array([xr1, yr1, zr1])
   
@@ -535,7 +561,7 @@ def pointLineDistance(az, el, P0):
   return dist
 
 
-def checkUfo(az1, el1, GPS1, az2, el2, GPS2):
+def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2):
   """
   Check whether 2 observations are compatible with each other.
   Supposed to run on cloud
@@ -546,33 +572,57 @@ def checkUfo(az1, el1, GPS1, az2, el2, GPS2):
     azimuth angle of UFO in the frame of observer 1.
   el1 : float
     elevation angle of UFO in the frame of observer 1.
-  GPS1 : float array
+  GeoCoordObserver1 : float array
     Contains latitude, longitude and altitude of observer 1 from GPS.
   az2 : float
     azimuth angle of UFO in the frame of observer 2.
   el2 : float
     elevation angle of UFO in the frame of observer 2.
-  GPS2 : float array
+  GeoCoordObserver2 : float array
     Contains latitude, longitude and altitude of observer 2 from GPS.
 
   Returns
   -------
   compatible : bool
     True if observation 1 and observation 2 are compatible.
-  latUfo : float
-    Latitude of the Ufo.
-  longUfo : float
-    Longitude of the Ufo.
-  altUfo : float
-    Altitude of the Ufo.
+  P0 : float array
+    Coordinates of the Ufo in the frame of Observer1.
   """
   
-  compatible = True
-  latUfo = 0
-  longUfo = 0
-  altUfo = 0
+  posObserver1 = getPointInEarthFrameFromGeoCoord(GeoCoordObserver1)
+  posObserver2 = getPointInEarthFrameFromGeoCoord(GeoCoordObserver2)
+  TransformMatrix = getTransformationMatrix(GeoCoordObserver1)
+  posObs2InFrameObs1 = np.matmul(TransformMatrix, (posObserver2 - posObserver1))
+
+  lineLineDist, P0, P1 = lineLineDistance(az1, el1, az2, el2, posObs2InFrameObs1)
+
+  print("Pos Colosseum in frame 7C: ", posObs2InFrameObs1)
+  print("Line-line dist: ", lineLineDist, "P0 = ", P0, "P1 = ", P1)
+
+  # Let assume by now a linear increase of the error with the distance with increase factor equal to 1e-3
+  ufoDist1 = pointPointDistance(P0, np.array([0.0, 0.0, 0.0]))
+  ufoDist2 = pointPointDistance(P1, np.array([0.0, 0.0, 0.0]))
+  ufoDist3 = pointPointDistance(P0, posObs2InFrameObs1)
+  ufoDist4 = pointPointDistance(P1, posObs2InFrameObs1)
+
+  ufoDist = ufoDist1
+  if (ufoDist2 > ufoDist):
+    ufoDist = ufoDist2
+  if (ufoDist3 > ufoDist):
+    ufoDist = ufoDist3
+  if (ufoDist4 > ufoDist):
+    ufoDist = ufoDist4
+
+  print("ufoDist = ", ufoDist, "ufoDist1 = ", ufoDist1, "ufoDist2 = ", ufoDist2, "ufoDist3 = ", ufoDist3, "ufoDist4 = ", ufoDist4)
+
+  coeff = 1e-3
+  maxErr = coeff * ufoDist
+  if(lineLineDist < maxErr):
+    compatible = True
+  else:
+    compatible = False
   
-  return compatible, latUfo, longUfo, altUfo
+  return compatible, P0
 
 
 def checkAirplane(azAirplaneFromObs, elAirplaneFromObs, GeoCoordObserver, GeoCoordAirplane):
