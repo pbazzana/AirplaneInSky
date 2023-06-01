@@ -222,14 +222,14 @@ def main():
 
   plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
   
-  # Usato Settecamini come posizione primo osservatore
+  # First obserer location: Settecamini
   latSettecamini  = 41.9401565969652 * deg2rad
   longSettecamini = 12.621029627805704 * deg2rad
   altSettecamini = 0.0  # altitude Settecamini = ?
   settecaminiGC = GeoCoord(latSettecamini, longSettecamini, altSettecamini)
   pos7c = getPointInEarthFrameFromGeoCoord(settecaminiGC)
 
-  # Usato aeroporto urbe per test con un aereo a una certa altitudine
+  # An airplane at Aeroporto Urbe
   latitudePlane  = 41.95232550018577 * deg2rad
   longitudePlane = 12.505142833005202 * deg2rad
   altitudePlane = 3000.0
@@ -255,16 +255,16 @@ def main():
   print("compatible with Flighradar = ", compatible)
 
 
-  # Usato Colosseo come posizione secondo osservatore
+  # Second observer location: Colosseo
   latColosseo  = 41.89014792072482 * deg2rad
   longColosseo = 12.492339876376782 * deg2rad
   altColosseo = 0.0  # altitude altColosseo = ?
   colosseoGC = GeoCoord(latColosseo, longColosseo, altColosseo)
   posColosseo = getPointInEarthFrameFromGeoCoord(colosseoGC)
 
-  # ******************************************************************************
-  # BEGIN --> code only for test - Generates Az and El of a presumed observation
-  # ******************************************************************************
+  # *****************************************************************************************************
+  # BEGIN --> code only for test - Generates Az and El of a presumed observation from a second observer
+  # *****************************************************************************************************
   TransformMatrix = getTransformationMatrix(colosseoGC)
   posPlaneLoc = np.matmul(TransformMatrix, (posPlane - posColosseo))
   observer2PlaneAz = np.arctan2(posPlaneLoc[1], posPlaneLoc[0])
@@ -273,9 +273,9 @@ def main():
   dist2 = pointPointDistance(posPlaneLoc, np.array([0.0, 0.0, 0.0]))
   print("Position in local Colosseum frame = ", posPlaneLoc)
   print("Dist = ", dist2, "Az = ", observer2PlaneAz * rad2deg, "El = ", observer2PlaneEl * rad2deg)
-  # ******************************************************************************
-  # END --> code only for test - Generates Az and El of a presumed observation
-  # ******************************************************************************
+  # *****************************************************************************************************
+  # END  --> code only for test - Generates Az and El of a presumed observation from a second observer
+  # *****************************************************************************************************
 
   compatible, P0 = checkUfo(observer1PlaneAz, observer1PlaneEl, settecaminiGC, observer2PlaneAz, observer2PlaneEl, colosseoGC)
   print("compatible with Ufo = ", compatible)
