@@ -244,10 +244,10 @@ def main():
   posColosseo = getPointInEarthFrameFromGeoCoord(colosseoGC)
 
   # ONLY FOR TEST: generate observation (az, el) from Observer 1 position
-  observer1PlaneAz, observer1PlaneEl = generateObservation(settecaminiGC, planeGC, "Settecamini")
+  observer1PlaneAz, observer1PlaneEl = generateTestObservation(settecaminiGC, planeGC, "Settecamini")
 
   # ONLY FOR TEST: generate observation (az, el) from Observer 2 position
-  observer2PlaneAz, observer2PlaneEl = generateObservation(colosseoGC, planeGC, "Colosseo")
+  observer2PlaneAz, observer2PlaneEl = generateTestObservation(colosseoGC, planeGC, "Colosseo")
 
   compatible = checkAirplane(observer1PlaneAz, observer1PlaneEl, settecaminiGC, planeGC)
   print("compatible with Flighradar = ", compatible)
@@ -264,10 +264,7 @@ def main():
   plt.show()
 
 
-def generateObservation(observerGC, planeGC, posName):
-  # **************************************************************************************
-  # BEGIN --> code only for test - Generates Az and El of an observation from observer 1
-  # **************************************************************************************
+def generateTestObservation(observerGC, planeGC, posName):
   posObserver = getPointInEarthFrameFromGeoCoord(observerGC)
   posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
   TransformMatrix = getTransformationMatrix(observerGC)
@@ -278,9 +275,7 @@ def generateObservation(observerGC, planeGC, posName):
   dist1 = pointPointDistance(posPlaneLoc1, np.array([0.0, 0.0, 0.0]))
   print("Position of the airplane in local ", posName, " frame = ", posPlaneLoc1)
   print("Dist = ", dist1, "Az = ", observer1PlaneAz * rad2deg, "El = ", observer1PlaneEl * rad2deg)
-  # **************************************************************************************
-  # END --> code only for test - Generates Az and El of an observation from observer 1
-  # **************************************************************************************
+
   return observer1PlaneAz,observer1PlaneEl
 
 
@@ -486,9 +481,9 @@ def lineLineDistance(az1, el1, az2, el2, Observer2InFrame1):
   y2 = Observer2InFrame1[1]
   z2 = Observer2InFrame1[2]
   
-  b =     np.cos(el1) * np.cos(el2) * np.cos(az1) * np.cos(az2)
-  b = b + np.cos(el1) * np.cos(el2) * np.sin(az1) * np.sin(az2)
-  b = b + np.sin(el1) * np.sin(el2)
+  b =      np.cos(el1) * np.cos(el2) * np.cos(az1) * np.cos(az2)
+  b = b  + np.cos(el1) * np.cos(el2) * np.sin(az1) * np.sin(az2)
+  b = b  + np.sin(el1) * np.sin(el2)
   c = x2 * np.cos(el1) * np.cos(az1) + y2 * np.cos(el1) * np.sin(az1) + z2 * np.sin(el1)
   d = x2 * np.cos(el2) * np.cos(az2) + y2 * np.cos(el2) * np.sin(az2) + z2 * np.sin(el2)
   
@@ -589,14 +584,20 @@ def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2):
   TransformMatrix = getTransformationMatrix(GeoCoordObserver1)
   posObs2InFrameObs1 = np.matmul(TransformMatrix, (posObserver2 - posObserver1))
 
+  # Interesting: flat world assumption leads to a minimal error.
+  # Is this really correct or do we have a bug in the computation of the normal to the surface?
+  posObs2InFrameObs1[2] = 0.0
+
   lineLineDist, P0, P1 = lineLineDistance(az1, el1, az2, el2, posObs2InFrameObs1)
 
   print("Pos Colosseum in frame 7C: ", posObs2InFrameObs1)
   print("Line-line dist: ", lineLineDist, "P0 = ", P0, "P1 = ", P1)
 
-  # Let assume by now a linear increase of the error with the distance with increase factor equal to 1e-3
-  ufoDist1 = pointPointDistance(P0, np.array([0.0, 0.0, 0.0]))
-  ufoDist2 = pointPointDistance(P1, np.array([0.0, 0.0, 0.0]))
+  # Let assume by now a linear increase of the error with the distance of the object from the observers 
+  # To get an error estimate we assume an increase factor equal to 1e-3 (1m every 1000m)
+  observer1Origin = np.array([0.0, 0.0, 0.0])
+  ufoDist1 = pointPointDistance(P0, observer1Origin)
+  ufoDist2 = pointPointDistance(P1, observer1Origin)
   ufoDist3 = pointPointDistance(P0, posObs2InFrameObs1)
   ufoDist4 = pointPointDistance(P1, posObs2InFrameObs1)
 
@@ -657,13 +658,9 @@ def checkAirplane(azAirplaneFromObs, elAirplaneFromObs, GeoCoordObserver, GeoCoo
 
   ptLineDist = pointLineDistance(planeAz, planeEl, posPlaneLoc)
 
-#  dist = pointPointDistance(posPlaneLoc, np.array([0.0, 0.0, 0.0]))
-#  print("Position in local frame = ", posPlaneLoc)
-#  print("Dist = ", dist, "Az = ", planeAz * rad2deg, "El = ", planeEl * rad2deg)
-#  print("Point Line Distance = ", ptLineDist)
-
   # Let assume by now a linear increase of the error with the distance with increase factor equal to 1e-3
-  airplaneDist = pointPointDistance(posPlaneLoc, np.array([0.0, 0.0, 0.0]))
+  observerOrigin = np.array([0.0, 0.0, 0.0])
+  airplaneDist = pointPointDistance(posPlaneLoc, observerOrigin)
   coeff = 1e-3
   maxErr = coeff * airplaneDist
   if(ptLineDist < maxErr):
