@@ -221,6 +221,13 @@ def main():
     # print("x: ", x1rm-x1q, "y: ", y1rm-y1q, "z: ", z1rm-z1q)
 
   plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
+
+  # An airplane at Aeroporto Urbe
+  latitudePlane  = 41.95232550018577 * deg2rad
+  longitudePlane = 12.505142833005202 * deg2rad
+  altitudePlane = 3000.0
+  planeGC = GeoCoord(latitudePlane, longitudePlane, altitudePlane)
+  posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
   
   # First obserer location: Settecamini
   latSettecamini  = 41.9401565969652 * deg2rad
@@ -229,32 +236,6 @@ def main():
   settecaminiGC = GeoCoord(latSettecamini, longSettecamini, altSettecamini)
   pos7c = getPointInEarthFrameFromGeoCoord(settecaminiGC)
 
-  # An airplane at Aeroporto Urbe
-  latitudePlane  = 41.95232550018577 * deg2rad
-  longitudePlane = 12.505142833005202 * deg2rad
-  altitudePlane = 3000.0
-  planeGC = GeoCoord(latitudePlane, longitudePlane, altitudePlane)
-  posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
-
-  # ******************************************************************************
-  # BEGIN --> code only for test - Generates Az and El of a presumed observation
-  # ******************************************************************************
-  TransformMatrix = getTransformationMatrix(settecaminiGC)
-  posPlaneLoc = np.matmul(TransformMatrix, (posPlane - pos7c))
-  observer1PlaneAz = np.arctan2(posPlaneLoc[1], posPlaneLoc[0])
-  observer1PlaneEl = np.arctan2(posPlaneLoc[2], np.sqrt(posPlaneLoc[0] * posPlaneLoc[0] + posPlaneLoc[1] * posPlaneLoc[1]))
-
-  dist1 = pointPointDistance(posPlaneLoc, np.array([0.0, 0.0, 0.0]))
-  print("Position in local 7C frame = ", posPlaneLoc)
-  print("Dist = ", dist1, "Az = ", observer1PlaneAz * rad2deg, "El = ", observer1PlaneEl * rad2deg)
-  # ******************************************************************************
-  # END --> code only for test - Generates Az and El of a presumed observation
-  # ******************************************************************************
-
-  compatible = checkAirplane(observer1PlaneAz, observer1PlaneEl, settecaminiGC, planeGC)
-  print("compatible with Flighradar = ", compatible)
-
-
   # Second observer location: Colosseo
   latColosseo  = 41.89014792072482 * deg2rad
   longColosseo = 12.492339876376782 * deg2rad
@@ -262,20 +243,14 @@ def main():
   colosseoGC = GeoCoord(latColosseo, longColosseo, altColosseo)
   posColosseo = getPointInEarthFrameFromGeoCoord(colosseoGC)
 
-  # *****************************************************************************************************
-  # BEGIN --> code only for test - Generates Az and El of a presumed observation from a second observer
-  # *****************************************************************************************************
-  TransformMatrix = getTransformationMatrix(colosseoGC)
-  posPlaneLoc = np.matmul(TransformMatrix, (posPlane - posColosseo))
-  observer2PlaneAz = np.arctan2(posPlaneLoc[1], posPlaneLoc[0])
-  observer2PlaneEl = np.arctan2(posPlaneLoc[2], np.sqrt(posPlaneLoc[0] * posPlaneLoc[0] + posPlaneLoc[1] * posPlaneLoc[1]))
+  # ONLY FOR TEST: generate observation (az, el) from Observer 1 position
+  observer1PlaneAz, observer1PlaneEl = generateObservation(settecaminiGC, planeGC, "Settecamini")
 
-  dist2 = pointPointDistance(posPlaneLoc, np.array([0.0, 0.0, 0.0]))
-  print("Position in local Colosseum frame = ", posPlaneLoc)
-  print("Dist = ", dist2, "Az = ", observer2PlaneAz * rad2deg, "El = ", observer2PlaneEl * rad2deg)
-  # *****************************************************************************************************
-  # END  --> code only for test - Generates Az and El of a presumed observation from a second observer
-  # *****************************************************************************************************
+  # ONLY FOR TEST: generate observation (az, el) from Observer 2 position
+  observer2PlaneAz, observer2PlaneEl = generateObservation(colosseoGC, planeGC, "Colosseo")
+
+  compatible = checkAirplane(observer1PlaneAz, observer1PlaneEl, settecaminiGC, planeGC)
+  print("compatible with Flighradar = ", compatible)
 
   compatible, P0 = checkUfo(observer1PlaneAz, observer1PlaneEl, settecaminiGC, observer2PlaneAz, observer2PlaneEl, colosseoGC)
   print("compatible with Ufo = ", compatible)
@@ -287,6 +262,26 @@ def main():
   circle = plt.Circle((xpVanish, ypVanish), 20.0, color='b')
   plt.gca().add_patch(circle)
   plt.show()
+
+
+def generateObservation(observerGC, planeGC, posName):
+  # **************************************************************************************
+  # BEGIN --> code only for test - Generates Az and El of an observation from observer 1
+  # **************************************************************************************
+  posObserver = getPointInEarthFrameFromGeoCoord(observerGC)
+  posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
+  TransformMatrix = getTransformationMatrix(observerGC)
+  posPlaneLoc1 = np.matmul(TransformMatrix, (posPlane - posObserver))
+  observer1PlaneAz = np.arctan2(posPlaneLoc1[1], posPlaneLoc1[0])
+  observer1PlaneEl = np.arctan2(posPlaneLoc1[2], np.sqrt(posPlaneLoc1[0] * posPlaneLoc1[0] + posPlaneLoc1[1] * posPlaneLoc1[1]))
+
+  dist1 = pointPointDistance(posPlaneLoc1, np.array([0.0, 0.0, 0.0]))
+  print("Position of the airplane in local ", posName, " frame = ", posPlaneLoc1)
+  print("Dist = ", dist1, "Az = ", observer1PlaneAz * rad2deg, "El = ", observer1PlaneEl * rad2deg)
+  # **************************************************************************************
+  # END --> code only for test - Generates Az and El of an observation from observer 1
+  # **************************************************************************************
+  return observer1PlaneAz,observer1PlaneEl
 
 
 def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj, sx, sy, tx, ty):
