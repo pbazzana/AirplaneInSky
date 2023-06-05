@@ -229,30 +229,50 @@ def main():
   planeGC = GeoCoord(latitudePlane, longitudePlane, altitudePlane)
   posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
   
-  # First obserer location: Settecamini
-  latSettecamini  = 41.9401565969652 * deg2rad
-  longSettecamini = 12.621029627805704 * deg2rad
-  altSettecamini = 0.0  # altitude Settecamini = ?
-  settecaminiGC = GeoCoord(latSettecamini, longSettecamini, altSettecamini)
-  pos7c = getPointInEarthFrameFromGeoCoord(settecaminiGC)
+  # First observer location
+  # 41.9401565969652, 12.621029627805704  Settecamini
+  latObserver1  = 41.9401565969652 * deg2rad
+  longObserver1 = 12.621029627805704 * deg2rad
+  altObserver1 = 0.0  # altitude Observer1 = ?
+  Observer1GC = GeoCoord(latObserver1, longObserver1, altObserver1)
+  pos7c = getPointInEarthFrameFromGeoCoord(Observer1GC)
 
-  # Second observer location: Colosseo
-  latColosseo  = 41.89014792072482 * deg2rad
-  longColosseo = 12.492339876376782 * deg2rad
-  altColosseo = 0.0  # altitude altColosseo = ?
-  colosseoGC = GeoCoord(latColosseo, longColosseo, altColosseo)
-  posColosseo = getPointInEarthFrameFromGeoCoord(colosseoGC)
+  # Second observer location
+  latColosseo = 41.89014792072482
+  longColosseo = 12.492339876376782
+
+  # To West
+  latFiumicino = 41.80582938616291
+  longFiumicino = 12.249879780095494
+  # To East
+  latSubiaco = 41.94367459090483
+  longSubiaco = 13.056640155774263
+  # To North
+  latPoggiomirteto = 42.269958390187576
+  longPoggioMirteto = 12.682771249873289
+  # To South
+  latCampoleone = 41.64334897069568
+  longCampoleone = 12.65955145019369
+
+  latObserver2  = latSubiaco  * deg2rad
+  longObserver2 = longSubiaco * deg2rad
+  altObserver2 = 0.0  # altitude altObserver2 = ?
+  Observer2GC = GeoCoord(latObserver2, longObserver2, altObserver2)
+  posObserver2 = getPointInEarthFrameFromGeoCoord(Observer2GC)
 
   # ONLY FOR TEST: generate observation (az, el) from Observer 1 position
-  observer1PlaneAz, observer1PlaneEl = generateTestObservation(settecaminiGC, planeGC, "Settecamini")
+  observer1PlaneAz, observer1PlaneEl = generateTestObservation(Observer1GC, planeGC, "Observer1")
 
   # ONLY FOR TEST: generate observation (az, el) from Observer 2 position
-  observer2PlaneAz, observer2PlaneEl = generateTestObservation(colosseoGC, planeGC, "Colosseo")
+  observer2PlaneAz, observer2PlaneEl = generateTestObservation(Observer2GC, planeGC, "Campoleone")
 
-  compatible = checkAirplane(observer1PlaneAz, observer1PlaneEl, settecaminiGC, planeGC)
-  print("compatible with Flighradar = ", compatible)
+  compatible = checkAirplane(observer1PlaneAz, observer1PlaneEl, Observer1GC, planeGC)
+  print("Obs1 compatible with Flighradar = ", compatible)
 
-  compatible, P0 = checkUfo(observer1PlaneAz, observer1PlaneEl, settecaminiGC, observer2PlaneAz, observer2PlaneEl, colosseoGC)
+  compatible = checkAirplane(observer2PlaneAz, observer2PlaneEl, Observer2GC, planeGC)
+  print("Obs2 compatible with Flighradar = ", compatible)
+
+  compatible, P0 = checkUfo(observer1PlaneAz, observer1PlaneEl, Observer1GC, observer2PlaneAz, observer2PlaneEl, Observer2GC, planeGC)
   print("compatible with Ufo = ", compatible)
 
   xairplane = altitudePlane * np.cos(observer1PlaneEl) * np.cos(observer1PlaneAz)
@@ -267,16 +287,20 @@ def main():
 def generateTestObservation(observerGC, planeGC, posName):
   posObserver = getPointInEarthFrameFromGeoCoord(observerGC)
   posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
-  TransformMatrix = getTransformationMatrix(observerGC)
-  posPlaneLoc1 = np.matmul(TransformMatrix, (posPlane - posObserver))
-  observer1PlaneAz = np.arctan2(posPlaneLoc1[1], posPlaneLoc1[0])
-  observer1PlaneEl = np.arctan2(posPlaneLoc1[2], np.sqrt(posPlaneLoc1[0] * posPlaneLoc1[0] + posPlaneLoc1[1] * posPlaneLoc1[1]))
+  TransformMatrix, north, east = getTransformationMatrix(observerGC)
+  relPos = posPlane - posObserver
+  posPlaneInObserverFrame = np.matmul(TransformMatrix, relPos)
+  pInObsX = posPlaneInObserverFrame[0]
+  pInObsY = posPlaneInObserverFrame[1]
+  pInObsZ = posPlaneInObserverFrame[2]
+  observerPlaneAz = np.arctan2(pInObsY, pInObsX)
+  observerPlaneEl = np.arctan2(pInObsZ, np.sqrt(pInObsX * pInObsX + pInObsY * pInObsY))
 
-  dist1 = pointPointDistance(posPlaneLoc1, np.array([0.0, 0.0, 0.0]))
-  print("Position of the airplane in local ", posName, " frame = ", posPlaneLoc1)
-  print("Dist = ", dist1, "Az = ", observer1PlaneAz * rad2deg, "El = ", observer1PlaneEl * rad2deg)
+  dist1 = pointPointDistance(posPlaneInObserverFrame, np.array([0.0, 0.0, 0.0]))
+  print("Position of the airplane in local ", posName, " frame = ", posPlaneInObserverFrame)
+  print("Dist = ", dist1, "Az = ", observerPlaneAz * rad2deg, "El = ", observerPlaneEl * rad2deg)
 
-  return observer1PlaneAz,observer1PlaneEl
+  return observerPlaneAz,observerPlaneEl
 
 
 def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj, sx, sy, tx, ty):
@@ -544,14 +568,11 @@ def pointLineDistance(az, el, P0):
   P1 = np.array([x1, y1, z1])
 
   dist = pointPointDistance(P0, P1)
-  dAux = pointPointDistance(P0, np.array([0.0, 0.0, 0.0]))
-#  print("B) Coord point: ", dAux*np.cos(el)*np.cos(az), dAux*np.cos(el)*np.sin(az), dAux*np.sin(el))
-#  print ("***", "\nP0 = ", P0[0], P0[1], P0[2], "\nP1 = ", P1[0], P1[1], P1[2], "\nDistance = ", dist, "\n***\n")
   
   return dist
 
 
-def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2):
+def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2, planeGC):
   """
   Check whether 2 observations are compatible with each other.
   Supposed to run on cloud
@@ -578,19 +599,53 @@ def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2):
   P0 : float array
     Coordinates of the Ufo in the frame of Observer1.
   """
-  
+
+  posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
+
   posObserver1 = getPointInEarthFrameFromGeoCoord(GeoCoordObserver1)
   posObserver2 = getPointInEarthFrameFromGeoCoord(GeoCoordObserver2)
-  TransformMatrix = getTransformationMatrix(GeoCoordObserver1)
-  posObs2InFrameObs1 = np.matmul(TransformMatrix, (posObserver2 - posObserver1))
+  TransformMatrix, north, east = getTransformationMatrix(GeoCoordObserver1)
+  pObs2InObs1 = posObserver2 - posObserver1
+  posObs2InFrameObs1 = np.matmul(TransformMatrix, pObs2InObs1)
 
-  # Interesting: flat world assumption leads to a minimal error.
-  # Is this really correct or do we have a bug in the computation of the normal to the surface?
-  posObs2InFrameObs1[2] = 0.0
+  T1, north1, east2 = getTransformationMatrix(GeoCoordObserver1)
+  T2, north1, east2 = getTransformationMatrix(GeoCoordObserver2)
+  pPlaneObserver1 = np.matmul(T1, (posPlane - posObserver1))
+  pPlaneObserver2 = np.matmul(T2, (posPlane - posObserver2))
+  
+  pO2InO1 = np.matmul(T1, pObs2InObs1)
+
+  ro1 = np.sqrt(pPlaneObserver1[0]*pPlaneObserver1[0] + pPlaneObserver1[1]*pPlaneObserver1[1] + pPlaneObserver1[2]*pPlaneObserver1[2])
+  beta1 = np.arcsin(pPlaneObserver1[2] / ro1)
+  alfa1 = np.arctan2(pPlaneObserver1[1], pPlaneObserver1[0])
+
+  ro2 = np.sqrt(pPlaneObserver2[0]*pPlaneObserver2[0] + pPlaneObserver2[1]*pPlaneObserver2[1] + pPlaneObserver2[2]*pPlaneObserver2[2])
+  beta2 = np.arcsin(pPlaneObserver2[2] / ro2)
+  alfa2 = np.arctan2(pPlaneObserver2[1], pPlaneObserver2[0])
+
+  ro3 = np.sqrt(pO2InO1[0]*pO2InO1[0] + pO2InO1[1]*pO2InO1[1] + pO2InO1[2]*pO2InO1[2])
+  beta3 = np.arcsin(pO2InO1[2] / ro3)
+  alfa3 = np.arctan2(pO2InO1[1], pO2InO1[0])
+
+  print("A: ", "Az1 = ", alfa1 * rad2deg, "El1 = ", beta1 * rad2deg, "Az2 = ", alfa2 * rad2deg, "El2 = ", beta2 * rad2deg)
+  print("B: ", "Az1 = ", az1 * rad2deg, "El1 = ", el1 * rad2deg, "Az2 = ", az2 * rad2deg, "El2 = ", el2 * rad2deg)
+  print("C: ", "Az3 = ", alfa3 * rad2deg, "El3 = ", beta3 * rad2deg)
+
+  # Flat world assumption: in principle correction should be done in all 3 directions. Now done only on Z
+  posObs2InFrameObs1[2] = GeoCoordObserver2.altitude - GeoCoordObserver1.altitude
+
+  # Compensate Az difference between Observer 1 and Observer 2
+  tAux, nAux, eAux = getTransformationMatrix(GeoCoordObserver2)
+  deltaAz1 = getAngle(east, eAux)
+  deltaAz2 = getAngle(north, nAux)
+  print("deltaAz1 = ", deltaAz1, "deltaAz2 = ", deltaAz2)
 
   lineLineDist, P0, P1 = lineLineDistance(az1, el1, az2, el2, posObs2InFrameObs1)
+  lineLineDist = np.abs(lineLineDist + pO2InO1[2])
+  P1[2] = P1[2] - pO2InO1[2]
 
-  print("Pos Colosseum in frame 7C: ", posObs2InFrameObs1)
+  print("Pos Observer 2 in frame Observer 1: ", posObs2InFrameObs1)
+  print("Pos Observer 2 in frame Observer 1: ", pO2InO1)
   print("Line-line dist: ", lineLineDist, "P0 = ", P0, "P1 = ", P1)
 
   # Let assume by now a linear increase of the error with the distance of the object from the observers 
@@ -609,10 +664,9 @@ def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2):
   if (ufoDist4 > ufoDist):
     ufoDist = ufoDist4
 
-  print("ufoDist = ", ufoDist, "ufoDist1 = ", ufoDist1, "ufoDist2 = ", ufoDist2, "ufoDist3 = ", ufoDist3, "ufoDist4 = ", ufoDist4)
-
-  coeff = 1e-3
+  coeff = 1e-2
   maxErr = coeff * ufoDist
+  print("maxErr = ", maxErr)
   if(lineLineDist < maxErr):
     compatible = True
   else:
@@ -644,13 +698,13 @@ def checkAirplane(azAirplaneFromObs, elAirplaneFromObs, GeoCoordObserver, GeoCoo
   Returns
   -------
   compatible : bool
-    True if observation 1 and observation 2 are compatible.
+    True if observation 1 and the position from Flightradar are compatible.
 
   """
 
   posObserver = getPointInEarthFrameFromGeoCoord(GeoCoordObserver)
   posPlane = getPointInEarthFrameFromGeoCoord(GeoCoordAirplane)
-  TransformMatrix = getTransformationMatrix(GeoCoordObserver)
+  TransformMatrix, north, east = getTransformationMatrix(GeoCoordObserver)
 
   posPlaneLoc = np.matmul(TransformMatrix, (posPlane - posObserver))
   planeAz = np.arctan2(posPlaneLoc[1], posPlaneLoc[0])
@@ -692,7 +746,8 @@ def getTransformationMatrix(GeoCoordOfOrigin):
   e = east / np.sqrt(np.dot(east, east))
 
   # North (n vector) is orthogonal to the Normal to the sphere (v - vertical vector) and to the East (e vector)
-  n = np.cross(v, e) 
+  north = np.cross(v, e)
+  n = north / np.sqrt(np.dot(north, north))
 
   TransformMatrix = np.zeros((3,3))
   TransformMatrix[0, 0] = e[0]
@@ -705,7 +760,7 @@ def getTransformationMatrix(GeoCoordOfOrigin):
   TransformMatrix[2, 1] = v[1]
   TransformMatrix[2, 2] = v[2]
 
-  return TransformMatrix
+  return TransformMatrix, n, e
 
 def getAngle(v1, v2):
   """
