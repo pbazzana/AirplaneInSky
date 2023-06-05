@@ -609,13 +609,16 @@ def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2, planeGC):
   posObserver2 = getPointInEarthFrameFromGeoCoord(GeoCoordObserver2)
   obs2InObs1 = posObserver2 - posObserver1
   o2InO1 = np.matmul(TransformMatrix1, obs2InObs1)
-  vO2 = np.array([np.cos(el2)*np.cos(az2), np.cos(el2)*np.sin(az2), np.sin(el2)])
-  vO2 = vO2 / np.sqrt(np.dot(vO2, vO2))
-  vO2_O1 = np.matmul(TransformMatrix3, vO2)
-  ro = np.sqrt(vO2_O1[0]*vO2_O1[0] + vO2_O1[1]*vO2_O1[1] + vO2_O1[2]*vO2_O1[2])
-  el = np.arcsin(vO2_O1[2] / ro)
-  az = np.arctan2(vO2_O1[1], vO2_O1[0])
-
+  # Build the vector associated to the direction of the plane in the frame of Observer 2
+  d = np.array([np.cos(el2)*np.cos(az2), np.cos(el2)*np.sin(az2), np.sin(el2)])
+  d = d / np.sqrt(np.dot(d, d))
+  # Transform the vector associated to the direction of the plane to the frame of Observer 1
+  dInO1 = np.matmul(TransformMatrix3, d)
+  # Compute the updated azimuth and elevation in the frame of Observer 1
+  ro = np.sqrt(dInO1[0]*dInO1[0] + dInO1[1]*dInO1[1] + dInO1[2]*dInO1[2])
+  el = np.arcsin(dInO1[2] / ro)
+  az = np.arctan2(dInO1[1], dInO1[0])
+  # Compute the min distance of the two lines in the frame of Observer 1
   lineLineDist_2, P0_2, P1_2 = lineLineDistance(az1, el1, az, el, o2InO1)
   print("Line-line_2 dist: ", lineLineDist_2, "P0_2 = ", P0_2, "P1_2 = ", P1_2)
   print("*********")
