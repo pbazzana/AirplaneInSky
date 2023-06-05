@@ -223,16 +223,15 @@ def main():
   plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
 
   # An airplane at Aeroporto Urbe
-  latitudePlane  = 41.95232550018577 * deg2rad
-  longitudePlane = 12.505142833005202 * deg2rad
+  latitudePlane  = 41.95232550018577
+  longitudePlane = 12.505142833005202
   altitudePlane = 3000.0
   planeGC = GeoCoord(latitudePlane, longitudePlane, altitudePlane)
   posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
   
-  # First observer location
-  # 41.9401565969652, 12.621029627805704  Settecamini
-  latObserver1  = 41.9401565969652 * deg2rad
-  longObserver1 = 12.621029627805704 * deg2rad
+  # First observer location: Settecamini
+  latObserver1  = 41.9401565969652
+  longObserver1 = 12.621029627805704
   altObserver1 = 0.0  # altitude Observer1 = ?
   Observer1GC = GeoCoord(latObserver1, longObserver1, altObserver1)
   pos7c = getPointInEarthFrameFromGeoCoord(Observer1GC)
@@ -254,8 +253,8 @@ def main():
   latCampoleone = 41.64334897069568
   longCampoleone = 12.65955145019369
 
-  latObserver2  = latSubiaco  * deg2rad
-  longObserver2 = longSubiaco * deg2rad
+  latObserver2  = latCampoleone
+  longObserver2 = longCampoleone
   altObserver2 = 0.0  # altitude altObserver2 = ?
   Observer2GC = GeoCoord(latObserver2, longObserver2, altObserver2)
   posObserver2 = getPointInEarthFrameFromGeoCoord(Observer2GC)
@@ -439,8 +438,8 @@ def getPointInEarthFrameFromGeoCoord(GeoCoord):
 
   Parameters
   ----------
-  lat : latitude angle.  Unit: rad
-  log : longitude angle. Unit: rad
+  lat : latitude angle.  Unit: deg
+  log : longitude angle. Unit: deg
 
   Returns
   -------
@@ -450,10 +449,12 @@ def getPointInEarthFrameFromGeoCoord(GeoCoord):
 
   """
   r = 6373044.737 # earth radius. Unit: meters
+  lat = GeoCoord.latitude  * deg2rad
+  lon = GeoCoord.longitude * deg2rad
   r = r + GeoCoord.altitude
-  x = r * np.cos(GeoCoord.latitude) * np.cos(GeoCoord.longitude)
-  y = r * np.cos(GeoCoord.latitude) * np.sin(GeoCoord.longitude)
-  z = r * np.sin(GeoCoord.latitude)
+  x = r * np.cos(lat) * np.cos(lon)
+  y = r * np.cos(lat) * np.sin(lon)
+  z = r * np.sin(lat)
   P = np.array([x, y, z])
   return P
 
@@ -612,7 +613,7 @@ def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2, planeGC):
   T2, north1, east2 = getTransformationMatrix(GeoCoordObserver2)
   pPlaneObserver1 = np.matmul(T1, (posPlane - posObserver1))
   pPlaneObserver2 = np.matmul(T2, (posPlane - posObserver2))
-  
+
   pO2InO1 = np.matmul(T1, pObs2InObs1)
 
   ro1 = np.sqrt(pPlaneObserver1[0]*pPlaneObserver1[0] + pPlaneObserver1[1]*pPlaneObserver1[1] + pPlaneObserver1[2]*pPlaneObserver1[2])
