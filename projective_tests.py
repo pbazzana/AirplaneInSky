@@ -601,61 +601,32 @@ def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2, planeGC):
     Coordinates of the Ufo in the frame of Observer1.
   """
 
-  posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
+  TransformMatrix1, north1, east1 = getTransformationMatrix(GeoCoordObserver1)
+  TransformMatrix2, north2, east2 = getTransformationMatrix(GeoCoordObserver2)
+  TransformMatrix3 = np.matmul(TransformMatrix1, TransformMatrix2.transpose())
 
   posObserver1 = getPointInEarthFrameFromGeoCoord(GeoCoordObserver1)
   posObserver2 = getPointInEarthFrameFromGeoCoord(GeoCoordObserver2)
-  TransformMatrix, north, east = getTransformationMatrix(GeoCoordObserver1)
-  pObs2InObs1 = posObserver2 - posObserver1
-  posObs2InFrameObs1 = np.matmul(TransformMatrix, pObs2InObs1)
+  obs2InObs1 = posObserver2 - posObserver1
+  o2InO1 = np.matmul(TransformMatrix1, obs2InObs1)
+  vO2 = np.array([np.cos(el2)*np.cos(az2), np.cos(el2)*np.sin(az2), np.sin(el2)])
+  vO2 = vO2 / np.sqrt(np.dot(vO2, vO2))
+  vO2_O1 = np.matmul(TransformMatrix3, vO2)
+  ro = np.sqrt(vO2_O1[0]*vO2_O1[0] + vO2_O1[1]*vO2_O1[1] + vO2_O1[2]*vO2_O1[2])
+  el = np.arcsin(vO2_O1[2] / ro)
+  az = np.arctan2(vO2_O1[1], vO2_O1[0])
 
-  T1, north1, east2 = getTransformationMatrix(GeoCoordObserver1)
-  T2, north1, east2 = getTransformationMatrix(GeoCoordObserver2)
-  pPlaneObserver1 = np.matmul(T1, (posPlane - posObserver1))
-  pPlaneObserver2 = np.matmul(T2, (posPlane - posObserver2))
-
-  pO2InO1 = np.matmul(T1, pObs2InObs1)
-
-  ro1 = np.sqrt(pPlaneObserver1[0]*pPlaneObserver1[0] + pPlaneObserver1[1]*pPlaneObserver1[1] + pPlaneObserver1[2]*pPlaneObserver1[2])
-  beta1 = np.arcsin(pPlaneObserver1[2] / ro1)
-  alfa1 = np.arctan2(pPlaneObserver1[1], pPlaneObserver1[0])
-
-  ro2 = np.sqrt(pPlaneObserver2[0]*pPlaneObserver2[0] + pPlaneObserver2[1]*pPlaneObserver2[1] + pPlaneObserver2[2]*pPlaneObserver2[2])
-  beta2 = np.arcsin(pPlaneObserver2[2] / ro2)
-  alfa2 = np.arctan2(pPlaneObserver2[1], pPlaneObserver2[0])
-
-  ro3 = np.sqrt(pO2InO1[0]*pO2InO1[0] + pO2InO1[1]*pO2InO1[1] + pO2InO1[2]*pO2InO1[2])
-  beta3 = np.arcsin(pO2InO1[2] / ro3)
-  alfa3 = np.arctan2(pO2InO1[1], pO2InO1[0])
-
-  print("A: ", "Az1 = ", alfa1 * rad2deg, "El1 = ", beta1 * rad2deg, "Az2 = ", alfa2 * rad2deg, "El2 = ", beta2 * rad2deg)
-  print("B: ", "Az1 = ", az1 * rad2deg, "El1 = ", el1 * rad2deg, "Az2 = ", az2 * rad2deg, "El2 = ", el2 * rad2deg)
-  print("C: ", "Az3 = ", alfa3 * rad2deg, "El3 = ", beta3 * rad2deg)
-
-  # Flat world assumption: in principle correction should be done in all 3 directions. Now done only on Z
-  posObs2InFrameObs1[2] = GeoCoordObserver2.altitude - GeoCoordObserver1.altitude
-
-  # Compensate Az difference between Observer 1 and Observer 2
-  tAux, nAux, eAux = getTransformationMatrix(GeoCoordObserver2)
-  deltaAz1 = getAngle(east, eAux)
-  deltaAz2 = getAngle(north, nAux)
-  print("deltaAz1 = ", deltaAz1, "deltaAz2 = ", deltaAz2)
-
-  lineLineDist, P0, P1 = lineLineDistance(az1, el1, az2, el2, posObs2InFrameObs1)
-  lineLineDist = np.abs(lineLineDist + pO2InO1[2])
-  P1[2] = P1[2] - pO2InO1[2]
-
-  print("Pos Observer 2 in frame Observer 1: ", posObs2InFrameObs1)
-  print("Pos Observer 2 in frame Observer 1: ", pO2InO1)
-  print("Line-line dist: ", lineLineDist, "P0 = ", P0, "P1 = ", P1)
+  lineLineDist_2, P0_2, P1_2 = lineLineDistance(az1, el1, az, el, o2InO1)
+  print("Line-line_2 dist: ", lineLineDist_2, "P0_2 = ", P0_2, "P1_2 = ", P1_2)
+  print("*********")
 
   # Let assume by now a linear increase of the error with the distance of the object from the observers 
   # To get an error estimate we assume an increase factor equal to 1e-3 (1m every 1000m)
   observer1Origin = np.array([0.0, 0.0, 0.0])
-  ufoDist1 = pointPointDistance(P0, observer1Origin)
-  ufoDist2 = pointPointDistance(P1, observer1Origin)
-  ufoDist3 = pointPointDistance(P0, posObs2InFrameObs1)
-  ufoDist4 = pointPointDistance(P1, posObs2InFrameObs1)
+  ufoDist1 = pointPointDistance(P0_2, observer1Origin)
+  ufoDist2 = pointPointDistance(P1_2, observer1Origin)
+  ufoDist3 = pointPointDistance(P0_2, o2InO1)
+  ufoDist4 = pointPointDistance(P1_2, o2InO1)
 
   ufoDist = ufoDist1
   if (ufoDist2 > ufoDist):
@@ -665,15 +636,15 @@ def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2, planeGC):
   if (ufoDist4 > ufoDist):
     ufoDist = ufoDist4
 
-  coeff = 1e-2
+  coeff = 1e-3
   maxErr = coeff * ufoDist
   print("maxErr = ", maxErr)
-  if(lineLineDist < maxErr):
+  if(lineLineDist_2 < maxErr):
     compatible = True
   else:
     compatible = False
   
-  return compatible, P0
+  return compatible, P0_2
 
 
 def checkAirplane(azAirplaneFromObs, elAirplaneFromObs, GeoCoordObserver, GeoCoordAirplane):
@@ -760,6 +731,7 @@ def getTransformationMatrix(GeoCoordOfOrigin):
   TransformMatrix[2, 0] = v[0]
   TransformMatrix[2, 1] = v[1]
   TransformMatrix[2, 2] = v[2]
+  #TransformMatrix.transpose()
 
   return TransformMatrix, n, e
 
