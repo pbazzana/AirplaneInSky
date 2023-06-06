@@ -71,10 +71,10 @@ def main():
   uap = []
   planes = getPlaneList()
   samplePlane = planeGC # planes[1]
+
   observation1Az, observation1El = getAzElFromObserver(Observer1GC, samplePlane)
   observation1 = Observation(observation1Az, observation1El, Observer1GC)
   compatible, idx = searchPlane(observation1, planes)
-
   if (compatible):
     print("Index ", idx, ": ", planes[idx].latitude, planes[idx].longitude, planes[idx].altitude)
   else:
@@ -94,7 +94,6 @@ def main():
 
 
   compatible, idx = searchPlane(observation1, planes)
-
   if (compatible):
     print("Index ", idx, ": ", planes[idx].latitude, planes[idx].longitude, planes[idx].altitude)
   else:
@@ -111,12 +110,10 @@ def main():
       print("No matching airplane or Unidentified Aerial Phenomena (UAP). Adding candidate UAP to the UAP list")
       uap.append(observation1)
       printUAPList(uap)
-
 
   observation2Az, observation2El = getAzElFromObserver(Observer2GC, samplePlane)
   observation2 = Observation(observation2Az, observation2El, Observer2GC)
   compatible, idx = searchPlane(observation2, planes)
-
   if (compatible):
     print("Index ", idx, ": ", planes[idx].latitude, planes[idx].longitude, planes[idx].altitude)
   else:
@@ -133,6 +130,8 @@ def main():
       print("No matching airplane or Unidentified Aerial Phenomena (UAP). Adding candidate UAP to the UAP list")
       uap.append(observation1)
       printUAPList(uap)
+
+  return
 
 
 def getPlaneList():
@@ -304,7 +303,7 @@ def pointPointDistance(P1, P2):
   return d
 
 
-def pointLineDistance(az, el, P0):
+def pointLineDistance(az, el, p0):
   """
   Compute the distance between a point and a line in 3D space
   The Line passes in the position of the Observer (origin of the frame),
@@ -329,29 +328,29 @@ def pointLineDistance(az, el, P0):
   dist : float
     distance between the point P0 and the line (airplane - observation disatance)
   """
-  x0 = P0[0]
-  y0 = P0[1]
-  z0 = P0[2]
+  x0 = p0[0]
+  y0 = p0[1]
+  z0 = p0[2]
 
   k = x0 * np.cos(el) * np.cos(az) + y0 * np.cos(el) * np.sin(az) + z0 * np.sin(el)
   
   x1 = k * np.cos(el) * np.cos(az)
   y1 = k * np.cos(el) * np.sin(az)
   z1 = k * np.sin(el)
-  P1 = np.array([x1, y1, z1])
+  p1 = np.array([x1, y1, z1])
 
-  dist = pointPointDistance(P0, P1)
+  dist = pointPointDistance(p0, p1)
   
   return dist
 
 
-def lineLineDistance(az1, el1, az2, el2, Observer2InFrame1):
+def lineLineDistance(az1, el1, az2, el2, observer2InFrame1):
   """
   Compute the distance between 2 lines in 3D space.
   Line 1 passes in the origin of the observer 1 assuming that 
   the main frame is placed on the Observer 1 (0, 0, 0)
   Line 2 passes in the origin of the observer 2.
-  Observer 2 is in position "Observer2InFrame1" in the frame of the Observer1.
+  Observer 2 is in position "observer2InFrame1" in the frame of the Observer1.
   Compute method: in order to be the min distance vector, the vector connecting 
   a generic point on Line 1 and a generic point on Line 2, shall be orthogonal 
   to both the vector identifying the Line 1 and the vector identifying the Line 2.
@@ -380,9 +379,9 @@ def lineLineDistance(az1, el1, az2, el2, Observer2InFrame1):
     Contains x, y, z coordinates of the estimate of Observation 2.
 
   """
-  x2 = Observer2InFrame1[0]
-  y2 = Observer2InFrame1[1]
-  z2 = Observer2InFrame1[2]
+  x2 = observer2InFrame1[0]
+  y2 = observer2InFrame1[1]
+  z2 = observer2InFrame1[2]
   
   b =      np.cos(el1) * np.cos(el2) * np.cos(az1) * np.cos(az2)
   b = b  + np.cos(el1) * np.cos(el2) * np.sin(az1) * np.sin(az2)
@@ -539,22 +538,22 @@ def checkAirplane(observation1, geoCoordAirplane):
   return compatible
 
 
-def getTransformationMatrix(GeoCoordOfOrigin):
+def getTransformationMatrix(geoCoordOfOrigin):
   """
   The computation of the local frame associated to the input point is done using
   the definition of the gradient and normal vectors to a curve described as f(x,y,z) = 0
   For the part of code related to the construction of the transformation matrix 
   see https://vcg.isti.cnr.it/~cignoni/SciViz1819/SciViz_05_Trasformazioni.pdf
   """
-  P0 = getPointInEarthFrameFromGeoCoord(GeoCoordOfOrigin)
+  P0 = getPointInEarthFrameFromGeoCoord(geoCoordOfOrigin)
   
   # Compute a vector orthogonal to the surface of the sphere, pointing outside
-  gradf = np.array([2.0*P0[0], 2.0*P0[1], 2.0*P0[2]])
+  gradf = np.array([2.0 * P0[0], 2.0 * P0[1], 2.0 * P0[2]])
   v = gradf / np.sqrt(np.dot(gradf, gradf))
   
   # East is ortogonal to the normal to the surface without Z component
   # that is a vector tangent to the circle at z = z0 (section of the sphere at z=z0)
-  east = np.array([-2.0*P0[1], 2.0*P0[0], 0.0])  # orthogonal --> swap components, change sign of the first
+  east = np.array([-2.0 * P0[1], 2.0 * P0[0], 0.0])  # orthogonal --> swap components, change sign of the first
   e = east / np.sqrt(np.dot(east, east))
 
   # North (n vector) is orthogonal to the Normal to the sphere (v - vertical vector) and to the East (e vector)
@@ -571,7 +570,6 @@ def getTransformationMatrix(GeoCoordOfOrigin):
   TransformMatrix[2, 0] = v[0]
   TransformMatrix[2, 1] = v[1]
   TransformMatrix[2, 2] = v[2]
-  #TransformMatrix.transpose()
 
   return TransformMatrix
 
