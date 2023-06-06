@@ -5,6 +5,8 @@ Created on Mon Jan 23 21:43:18 2023
 @author: pgbaz
 """
 
+
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -28,9 +30,15 @@ class RotationVector():
 
 class GeoCoord():
   def __init__(self, lat, long, alt):
-    self.latitude  = lat   # rad
-    self.longitude = long  # rad
+    self.latitude  = lat   # deg
+    self.longitude = long  # deg
     self.altitude  = alt   # m
+
+class Observation():
+  def __init__(self, az, el, ObserverGC):
+    self.az  = az        # deg
+    self.el = el         # deg
+    self.ObserverGC = ObserverGC # GeoCoord
 
 
 class Quaternion:
@@ -152,75 +160,75 @@ class Quaternion:
 
 
 def main():
-  w = 1440.0
-  h = 2418.0
-  f = 1.0 # Focal length in mm, AoV=90
+  # w = 1440.0
+  # h = 2418.0
+  # f = 1.0 # Focal length in mm, AoV=90
 
-  sx =  w / 2.0
-  sy = -h / 2.0
-  tx =  w / 2.0
-  ty =  h / 2.0
+  # sx =  w / 2.0
+  # sy = -h / 2.0
+  # tx =  w / 2.0
+  # ty =  h / 2.0
 
-  # initialize the figure with the screen size (w, h)
-  plt.figure()
-  plt.xlim(-tx, tx)
-  plt.ylim(-ty, ty)
-  plt.gca().set_aspect('equal')
+  # # initialize the figure with the screen size (w, h)
+  # plt.figure()
+  # plt.xlim(-tx, tx)
+  # plt.ylim(-ty, ty)
+  # plt.gca().set_aspect('equal')
 
-  # Building the rotation matrix
-  phoneRotationMatrix = np.eye(4)
-  phoneOrientation = getPhoneOrientation()
-  phoneRotationMatrix = getRotationMatrixFromVector(phoneOrientation)
+  # # Building the rotation matrix
+  # phoneRotationMatrix = np.eye(4)
+  # phoneOrientation = getPhoneOrientation()
+  # phoneRotationMatrix = getRotationMatrixFromVector(phoneOrientation)
   
-  # Build the rotation quaternion  
-  phoneRotationQuaternion = Quaternion()
-  phoneRotationQuaternionConj = Quaternion()
-  phoneRotationQuaternion.getQuaternionFromVector(phoneOrientation)
-  phoneRotationQuaternionConj.copy(phoneRotationQuaternion)
-  phoneRotationQuaternionConj.conjugate()
-
-  elev = 0.0 # elevation 0 is the line of the horizon
-  elevRad = elev * np.pi / 180.0
-  azRange = range(50, 131, 5)
-  xVanish = np.zeros(np.size(azRange))
-  yVanish = np.zeros(np.size(azRange))
-  
-  # phoneOrientation.values[0] = 0.021908345
-  # phoneOrientation.values[1] = 0.009795881
-  # phoneOrientation.values[2] = 0.58035123
+  # # Build the rotation quaternion  
+  # phoneRotationQuaternion = Quaternion()
+  # phoneRotationQuaternionConj = Quaternion()
   # phoneRotationQuaternion.getQuaternionFromVector(phoneOrientation)
-  # print("Quat: ", phoneRotationQuaternion.values[0], phoneRotationQuaternion.values[1], phoneRotationQuaternion.values[2], phoneRotationQuaternion.values[3])
   # phoneRotationQuaternionConj.copy(phoneRotationQuaternion)
   # phoneRotationQuaternionConj.conjugate()
-  # x1, y1, x1q, y1q, z1q, valid = transformPoint(3.0, 3.0, 0.0, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
-  # print(x1q, y1q, z1q)
+
+  # elev = 0.0 # elevation 0 is the line of the horizon
+  # elevRad = elev * np.pi / 180.0
+  # azRange = range(50, 131, 5)
+  # xVanish = np.zeros(np.size(azRange))
+  # yVanish = np.zeros(np.size(azRange))
+  
+  # # phoneOrientation.values[0] = 0.021908345
+  # # phoneOrientation.values[1] = 0.009795881
+  # # phoneOrientation.values[2] = 0.58035123
+  # # phoneRotationQuaternion.getQuaternionFromVector(phoneOrientation)
+  # # print("Quat: ", phoneRotationQuaternion.values[0], phoneRotationQuaternion.values[1], phoneRotationQuaternion.values[2], phoneRotationQuaternion.values[3])
+  # # phoneRotationQuaternionConj.copy(phoneRotationQuaternion)
+  # # phoneRotationQuaternionConj.conjugate()
+  # # x1, y1, x1q, y1q, z1q, valid = transformPoint(3.0, 3.0, 0.0, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
+  # # print(x1q, y1q, z1q)
 
 
-  # compute points of the horizon
-  idx = 0
-  for az in azRange:
-    azRad = float(az) * np.pi / 180.0
-    x = np.cos(elevRad) * np.cos(azRad)
-    y = np.cos(elevRad) * np.sin(azRad)
-    z = np.sin(elevRad)
+  # # compute points of the horizon
+  # idx = 0
+  # for az in azRange:
+  #   azRad = float(az) * np.pi / 180.0
+  #   x = np.cos(elevRad) * np.cos(azRad)
+  #   y = np.cos(elevRad) * np.sin(azRad)
+  #   z = np.sin(elevRad)
 
-    #transform the vector with quaternion
-    x1, y1, x1q, y1q, z1q, valid = transformPoint(x, y, z, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
-    if(valid):
-      xVanish[idx] = x1
-      yVanish[idx] = y1
-      idx += 1
+  #   #transform the vector with quaternion
+  #   x1, y1, x1q, y1q, z1q, valid = transformPoint(x, y, z, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
+  #   if(valid):
+  #     xVanish[idx] = x1
+  #     yVanish[idx] = y1
+  #     idx += 1
 
-    # transform the vector with rotation matrix
-    # enable this code to compare the results. Rotation matrix must be built outside of the loop
-    # v = np.array([x, y, z, 1])
-    # vt = phoneRotationMatrix.dot(v)
-    # x1rm = vt[0]
-    # y1rm = vt[1]
-    # z1rm = vt[2]
-    # print("x: ", x1rm-x1q, "y: ", y1rm-y1q, "z: ", z1rm-z1q)
+  #   # transform the vector with rotation matrix
+  #   # enable this code to compare the results. Rotation matrix must be built outside of the loop
+  #   # v = np.array([x, y, z, 1])
+  #   # vt = phoneRotationMatrix.dot(v)
+  #   # x1rm = vt[0]
+  #   # y1rm = vt[1]
+  #   # z1rm = vt[2]
+  #   # print("x: ", x1rm-x1q, "y: ", y1rm-y1q, "z: ", z1rm-z1q)
 
-  plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
+  # plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
 
   # An airplane at Aeroporto Urbe
   latitudePlane  = 41.95232550018577
@@ -228,7 +236,7 @@ def main():
   altitudePlane = 3000.0
   planeGC = GeoCoord(latitudePlane, longitudePlane, altitudePlane)
   posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
-  
+
   # First observer location: Settecamini
   latObserver1  = 41.9401565969652
   longObserver1 = 12.621029627805704
@@ -259,6 +267,75 @@ def main():
   Observer2GC = GeoCoord(latObserver2, longObserver2, altObserver2)
   posObserver2 = getPointInEarthFrameFromGeoCoord(Observer2GC)
 
+  uap = []
+  planes = getPlaneList()
+  samplePlane = planeGC # planes[1]
+  observation1Az, observation1El = getAzElFromObserver(Observer1GC, samplePlane)
+  observation1 = Observation(observation1Az, observation1El, Observer1GC)
+  compatible, idx = searchPlane(observation1, planes)
+
+  if (compatible):
+    print("Index ", idx, ": ", planes[idx].latitude, planes[idx].longitude, planes[idx].altitude)
+  else:
+    matchFound, compatible, doUpdate, idx = searchUAP(observation1, uap)
+    if (matchFound == True):
+      if ((doUpdate == True) and (compatible == False)):
+        print("Same observer reporting same observation: just update the state")
+        uap[idx] = observation1
+
+      if ((compatible == True) and (doUpdate == False)):
+        # UAP confirmed !
+        print("UAP confirmed! Index = ", idx, ": ", uap[idx].az, uap[idx].el, uap[idx].ObserverGC.latitude, uap[idx].ObserverGC.longitude, uap[idx].ObserverGC.altitude)
+    else:
+      print("No matching airplane or Unidentified Aerial Phenomena (UAP). Adding candidate UAP to the UAP list")
+      uap.append(observation1)
+      printUAPList(uap)
+
+
+  compatible, idx = searchPlane(observation1, planes)
+
+  if (compatible):
+    print("Index ", idx, ": ", planes[idx].latitude, planes[idx].longitude, planes[idx].altitude)
+  else:
+    matchFound, compatible, doUpdate, idx = searchUAP(observation1, uap)
+    if (matchFound == True):
+      if ((doUpdate == True) and (compatible == False)):
+        print("Same observer reporting same observation: just update the state")
+        uap[idx] = observation1
+
+      if ((compatible == True) and (doUpdate == False)):
+        # UAP confirmed !
+        print("UAP confirmed! Index = ", idx, ": ", uap[idx].az, uap[idx].el, uap[idx].ObserverGC.latitude, uap[idx].ObserverGC.longitude, uap[idx].ObserverGC.altitude)
+    else:
+      print("No matching airplane or Unidentified Aerial Phenomena (UAP). Adding candidate UAP to the UAP list")
+      uap.append(observation1)
+      printUAPList(uap)
+
+
+  observation2Az, observation2El = getAzElFromObserver(Observer2GC, samplePlane)
+  observation2 = Observation(observation2Az, observation2El, Observer2GC)
+  compatible, idx = searchPlane(observation2, planes)
+
+  if (compatible):
+    print("Index ", idx, ": ", planes[idx].latitude, planes[idx].longitude, planes[idx].altitude)
+  else:
+    matchFound, compatible, doUpdate, idx = searchUAP(observation2, uap)
+    if (matchFound == True):
+      if ((doUpdate == True) and (compatible == False)):
+        print("Same observer reporting same observation: just update the state")
+        uap[idx] = observation1
+
+      if ((compatible == True) and (doUpdate == False)):
+        # UAP confirmed !
+        print("UAP confirmed! Index = ", idx, ": ", uap[idx].az, uap[idx].el, uap[idx].ObserverGC.latitude, uap[idx].ObserverGC.longitude, uap[idx].ObserverGC.altitude)
+    else:
+      print("No matching airplane or Unidentified Aerial Phenomena (UAP). Adding candidate UAP to the UAP list")
+      uap.append(observation1)
+      printUAPList(uap)
+
+
+  return
+
   # ONLY FOR TEST: generate observation (az, el) from Observer 1 position
   observer1PlaneAz, observer1PlaneEl = generateTestObservation(Observer1GC, planeGC, "Observer1")
 
@@ -271,7 +348,7 @@ def main():
   compatible = checkAirplane(observer2PlaneAz, observer2PlaneEl, Observer2GC, planeGC)
   print("Obs2 compatible with Flighradar = ", compatible)
 
-  compatible, P0 = checkUfo(observer1PlaneAz, observer1PlaneEl, Observer1GC, observer2PlaneAz, observer2PlaneEl, Observer2GC, planeGC)
+  compatible, P0 = checkUAP(observer1PlaneAz, observer1PlaneEl, Observer1GC, observer2PlaneAz, observer2PlaneEl, Observer2GC, planeGC)
   print("compatible with Ufo = ", compatible)
 
   xairplane = altitudePlane * np.cos(observer1PlaneEl) * np.cos(observer1PlaneAz)
@@ -281,6 +358,51 @@ def main():
   circle = plt.Circle((xpVanish, ypVanish), 20.0, color='b')
   plt.gca().add_patch(circle)
   plt.show()
+
+
+def getPlaneList():
+  f = open('api_example_rome_box.json',) # Opening list of airplanes
+  data = json.load(f) # returns JSON object as a dictionary
+  planes = []
+
+  # Iterating through the airplane list, discarding airplanes with invalid information
+  for i in data['states']:
+    if (isinstance(i[5], float) and isinstance(i[6], float) and isinstance(i[7], float)):
+      planes.append(GeoCoord(i[6], i[5], i[7]))
+
+  f.close()
+  return planes
+
+
+def searchPlane(observation1, planes):
+  compatible = False
+  i = 0
+  for i in range(len(planes)):
+    comp = checkAirplane(observation1, planes[i])
+    compatible = compatible or comp
+    if (comp == True):
+      break
+  return compatible, i
+
+
+def searchUAP(observation1, uap):
+  compatible = False
+  doUpd = False
+  matchFound = False
+  i = 0
+  for i in range(len(uap)):
+    print(uap[i].az, uap[i].el, uap[i].ObserverGC.latitude, uap[i].ObserverGC.longitude, uap[i].ObserverGC.altitude)
+    compatible, doUpd = checkUAP(observation1, uap[i])
+    if ((doUpd == True) or (compatible == True)):
+      matchFound = True
+      break
+  return matchFound, compatible, doUpd, i
+
+
+def printUAPList(uap):
+  for i in range(len(uap)):
+    print(uap[i].az, uap[i].el, uap[i].ObserverGC.latitude, uap[i].ObserverGC.longitude, uap[i].ObserverGC.altitude)
+  return
 
 
 def generateTestObservation(observerGC, planeGC, posName):
@@ -300,6 +422,21 @@ def generateTestObservation(observerGC, planeGC, posName):
   print("Dist = ", dist1, "Az = ", observerPlaneAz * rad2deg, "El = ", observerPlaneEl * rad2deg)
 
   return observerPlaneAz,observerPlaneEl
+
+
+def getAzElFromObserver(observerGC, planeGC):
+  posObserver = getPointInEarthFrameFromGeoCoord(observerGC)
+  posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
+  TransformMatrix, north, east = getTransformationMatrix(observerGC)
+  relPos = posPlane - posObserver
+  posPlaneInObserverFrame = np.matmul(TransformMatrix, relPos)
+  pInObsX = posPlaneInObserverFrame[0]
+  pInObsY = posPlaneInObserverFrame[1]
+  pInObsZ = posPlaneInObserverFrame[2]
+  planeAz = np.arctan2(pInObsY, pInObsX)
+  planeEl = np.arctan2(pInObsZ, np.sqrt(pInObsX * pInObsX + pInObsY * pInObsY))
+
+  return planeAz,planeEl
 
 
 def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj, sx, sy, tx, ty):
@@ -573,84 +710,88 @@ def pointLineDistance(az, el, P0):
   return dist
 
 
-def checkUfo(az1, el1, GeoCoordObserver1, az2, el2, GeoCoordObserver2, planeGC):
+def checkUAP(observation1, observation2):
   """
   Check whether 2 observations are compatible with each other.
   Supposed to run on cloud
  
   Parameters
   ----------
-  az1 : float
-    azimuth angle of UFO in the frame of observer 1.
-  el1 : float
-    elevation angle of UFO in the frame of observer 1.
-  GeoCoordObserver1 : float array
-    Contains latitude, longitude and altitude of observer 1 from GPS.
-  az2 : float
-    azimuth angle of UFO in the frame of observer 2.
-  el2 : float
-    elevation angle of UFO in the frame of observer 2.
-  GeoCoordObserver2 : float array
-    Contains latitude, longitude and altitude of observer 2 from GPS.
+  observation1 : Class Observation.
+    Contains:
+      azimuth angle of the airplane in the frame of the observer (unit deg).
+      elevation angle of the airplane in the frame of the observer (unit deg).
+      observer Geo Coord: latitude (unit deg), longitude (unit deg) and altitude (unit m)
+  observation2 : Class Observation.
+    Contains:
+      azimuth angle of the airplane in the frame of the observer (unit deg).
+      elevation angle of the airplane in the frame of the observer (unit deg).
+      observer Geo Coord: latitude (unit deg), longitude (unit deg) and altitude (unit m)
 
   Returns
   -------
   compatible : bool
     True if observation 1 and observation 2 are compatible.
-  P0 : float array
-    Coordinates of the Ufo in the frame of Observer1.
   """
+  compatible = False
+  doUpdate = False
 
-  TransformMatrix1, north1, east1 = getTransformationMatrix(GeoCoordObserver1)
-  TransformMatrix2, north2, east2 = getTransformationMatrix(GeoCoordObserver2)
+  TransformMatrix1, north1, east1 = getTransformationMatrix(observation1.ObserverGC)
+  TransformMatrix2, north2, east2 = getTransformationMatrix(observation2.ObserverGC)
   TransformMatrix3 = np.matmul(TransformMatrix1, TransformMatrix2.transpose())
 
-  posObserver1 = getPointInEarthFrameFromGeoCoord(GeoCoordObserver1)
-  posObserver2 = getPointInEarthFrameFromGeoCoord(GeoCoordObserver2)
-  obs2InObs1 = posObserver2 - posObserver1
-  o2InO1 = np.matmul(TransformMatrix1, obs2InObs1)
-  # Build the vector associated to the direction of the plane in the frame of Observer 2
-  d = np.array([np.cos(el2)*np.cos(az2), np.cos(el2)*np.sin(az2), np.sin(el2)])
-  d = d / np.sqrt(np.dot(d, d))
-  # Transform the vector associated to the direction of the plane to the frame of Observer 1
-  dInO1 = np.matmul(TransformMatrix3, d)
-  # Compute the updated azimuth and elevation in the frame of Observer 1
-  ro = np.sqrt(dInO1[0]*dInO1[0] + dInO1[1]*dInO1[1] + dInO1[2]*dInO1[2])
-  el = np.arcsin(dInO1[2] / ro)
-  az = np.arctan2(dInO1[1], dInO1[0])
-  # Compute the min distance of the two lines in the frame of Observer 1
-  lineLineDist_2, P0_2, P1_2 = lineLineDistance(az1, el1, az, el, o2InO1)
-  print("Line-line_2 dist: ", lineLineDist_2, "P0_2 = ", P0_2, "P1_2 = ", P1_2)
-  print("*********")
+  posObserver1 = getPointInEarthFrameFromGeoCoord(observation1.ObserverGC)
+  posObserver2 = getPointInEarthFrameFromGeoCoord(observation2.ObserverGC)
 
-  # Let assume by now a linear increase of the error with the distance of the object from the observers 
-  # To get an error estimate we assume an increase factor equal to 1e-3 (1m every 1000m)
-  observer1Origin = np.array([0.0, 0.0, 0.0])
-  ufoDist1 = pointPointDistance(P0_2, observer1Origin)
-  ufoDist2 = pointPointDistance(P1_2, observer1Origin)
-  ufoDist3 = pointPointDistance(P0_2, o2InO1)
-  ufoDist4 = pointPointDistance(P1_2, o2InO1)
+  minObserversDistance = 20.0
 
-  ufoDist = ufoDist1
-  if (ufoDist2 > ufoDist):
-    ufoDist = ufoDist2
-  if (ufoDist3 > ufoDist):
-    ufoDist = ufoDist3
-  if (ufoDist4 > ufoDist):
-    ufoDist = ufoDist4
-
-  coeff = 1e-3
-  maxErr = coeff * ufoDist
-  print("maxErr = ", maxErr)
-  if(lineLineDist_2 < maxErr):
-    compatible = True
+  # Avoid confirming UAP from the same observer
+  # Better approach would be checking the observer position AND the observation parameters
+  # by now only the observer position is checked (if the same observer reports more than 1 object the second is discarded!)
+  if (pointPointDistance(posObserver1, posObserver2) < minObserversDistance):
+    doUpdate = True
   else:
-    compatible = False
+    obs2InObs1 = posObserver2 - posObserver1
+    o2InO1 = np.matmul(TransformMatrix1, obs2InObs1)
+    # Build the vector associated to the direction of the plane in the frame of Observer 2
+    d = np.array([np.cos(observation2.el)*np.cos(observation2.az), np.cos(observation2.el)*np.sin(observation2.az), np.sin(observation2.el)])
+    d = d / np.sqrt(np.dot(d, d))
+    # Transform the vector associated to the direction of the plane to the frame of Observer 1
+    dInO1 = np.matmul(TransformMatrix3, d)
+    # Compute the updated azimuth and elevation in the frame of Observer 1
+    ro = np.sqrt(dInO1[0]*dInO1[0] + dInO1[1]*dInO1[1] + dInO1[2]*dInO1[2])
+    el = np.arcsin(dInO1[2] / ro)
+    az = np.arctan2(dInO1[1], dInO1[0])
+    # Compute the min distance of the two lines in the frame of Observer 1
+    lineLineDist_2, P0_2, P1_2 = lineLineDistance(observation1.az, observation1.el, az, el, o2InO1)
+
+    # Let assume by now a linear increase of the error with the distance of the object from the observers 
+    # To get an error estimate we assume an increase factor equal to 1e-3 (1m every 1000m)
+    observer1Origin = np.array([0.0, 0.0, 0.0])
+    ufoDist1 = pointPointDistance(P0_2, observer1Origin)
+    ufoDist2 = pointPointDistance(P1_2, observer1Origin)
+    ufoDist3 = pointPointDistance(P0_2, o2InO1)
+    ufoDist4 = pointPointDistance(P1_2, o2InO1)
+
+    ufoDist = ufoDist1
+    if (ufoDist2 > ufoDist):
+      ufoDist = ufoDist2
+    if (ufoDist3 > ufoDist):
+      ufoDist = ufoDist3
+    if (ufoDist4 > ufoDist):
+      ufoDist = ufoDist4
+
+    coeff = 1e-3
+    maxErr = coeff * ufoDist
+    if(lineLineDist_2 < maxErr):
+      compatible = True
+    else:
+      compatible = False
   
-  return compatible, P0_2
+  return compatible, doUpdate
 
 
-def checkAirplane(azAirplaneFromObs, elAirplaneFromObs, GeoCoordObserver, GeoCoordAirplane):
+def checkAirplane(observation1, geoCoordAirplane):
   """
   Check whether 1 observations is compatible with Flightradar.
   Supposed to run on the mobile (probably)
@@ -661,14 +802,12 @@ def checkAirplane(azAirplaneFromObs, elAirplaneFromObs, GeoCoordObserver, GeoCoo
  
   Parameters
   ----------
-  azAirplaneFromObs : float. Unit: rad
-    azimuth angle of the airplane in the frame of the observer.
-  elAirplaneFromObs : float. Unit: rad
-    elevation angle of the airplane in the frame of the observer.
-  GeoCoordObserver : class GPS()
-    Contains latitude and longitude of observer 1 from GPS. Angles deg, altitude m
-  GeoCoordAirplane : class GPS()
-    Contains latitude, longitude and altitude from Flightradar. Angles deg, altitude m
+  observation1 : Class Observation.
+    Contains azimuth angle of the airplane in the frame of the observer (unit deg).
+    elevation angle of the airplane in the frame of the observer (unit deg).
+    observer Geo Coord: latitude (unit deg), longitude (unit deg) and altitude (unit m)
+  GeoCoordAirplane : class GeoCoord()
+    Contains latitude (unit deg), longitude (unit deg) and altitude (unit m) from Flightradar.
 
   Returns
   -------
@@ -676,16 +815,12 @@ def checkAirplane(azAirplaneFromObs, elAirplaneFromObs, GeoCoordObserver, GeoCoo
     True if observation 1 and the position from Flightradar are compatible.
 
   """
-
-  posObserver = getPointInEarthFrameFromGeoCoord(GeoCoordObserver)
-  posPlane = getPointInEarthFrameFromGeoCoord(GeoCoordAirplane)
-  TransformMatrix, north, east = getTransformationMatrix(GeoCoordObserver)
-
+  posObserver = getPointInEarthFrameFromGeoCoord(observation1.ObserverGC)
+  posPlane = getPointInEarthFrameFromGeoCoord(geoCoordAirplane)
+  TransformMatrix, north, east = getTransformationMatrix(observation1.ObserverGC)
   posPlaneLoc = np.matmul(TransformMatrix, (posPlane - posObserver))
-  planeAz = np.arctan2(posPlaneLoc[1], posPlaneLoc[0])
-  planeEl = np.arctan2(posPlaneLoc[2], np.sqrt(posPlaneLoc[0] * posPlaneLoc[0] + posPlaneLoc[1] * posPlaneLoc[1]))
 
-  ptLineDist = pointLineDistance(planeAz, planeEl, posPlaneLoc)
+  ptLineDist = pointLineDistance(observation1.az, observation1.el, posPlaneLoc)
 
   # Let assume by now a linear increase of the error with the distance with increase factor equal to 1e-3
   observerOrigin = np.array([0.0, 0.0, 0.0])
@@ -696,8 +831,6 @@ def checkAirplane(azAirplaneFromObs, elAirplaneFromObs, GeoCoordObserver, GeoCoo
     compatible = True
   else:
     compatible = False
-
-  print("Observation to Airplane distance = ", ptLineDist)
 
   return compatible
 
