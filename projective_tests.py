@@ -7,26 +7,11 @@ Created on Mon Jan 23 21:43:18 2023
 
 
 import json
-import numpy as np
-import matplotlib.pyplot as plt
+import math
 
-deg2rad = np.pi / 180.0
-rad2deg = 180.0 / np.pi
 
-class RotationVector():
-  """
-  https://developer.android.com/guide/topics/sensors/sensors_motion
-  TYPE_ROTATION_VECTOR
-  values[0]	Rotation vector component along the x axis (x * sin(θ/2))
-  values[1]	Rotation vector component along the y axis (y * sin(θ/2))
-  values[2]	Rotation vector component along the z axis (z * sin(θ/2))
-  values[3]	Scalar component of the rotation vector ((cos(θ/2))
-  The scalar component is an optional value. 
-  Will NOT be used as it is not used in SkyMAP
-  """
-  def __init__(self):
-    self.values = np.array([0.0, 0.0, 0.0, 0.0])
-
+deg2rad = math.pi / 180.0
+rad2deg = 180.0 / math.pi
 
 class GeoCoord():
   def __init__(self, lat, long, alt):
@@ -41,194 +26,7 @@ class Observation():
     self.ObserverGC = ObserverGC # GeoCoord
 
 
-class Quaternion:
-  """
-  Quaternion in Android lib is composed by (please confirm !!!!):
-  values[0]	w
-  values[1]	ix
-  values[2]	iy
-  values[3]	iz
-  Not so nice that it's an array: indexes can be confusing. Would be better to have a struct.
-  Keeping as it is to comply with Android libs
-  """
-  def __init__(self):
-    self.values = np.array([0.0, 0.0, 0.0, 0.0])
-
-  def getQuaternionFromVector(self, rotationVector):
-    """
-    Get Quaternion from a 3 component rotation vector
-    See https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/hardware/SensorManager.java
-    See https://developer.android.com/reference/android/hardware/SensorManager#getQuaternionFromVector(float[],%20float[])
-    The method getQuaternionFromVector (using code for rotation vector with 3 entries, consistent with SkyMAP)
-    
-    input: rotation vector with 3 entries
-    output: initialize the quaternion instance "values" with the coefficients 
-            of the quaternion corresponding to the provided rotation vector
-    """
-    q1 = rotationVector.values[0]
-    q2 = rotationVector.values[1]
-    q3 = rotationVector.values[2]
-    q0 = 1.0 - q1 * q1 - q2 * q2 - q3 * q3
-    
-    if(q0 > 0.0):
-      q0 = np.sqrt(q0)
-    else:
-      q0 = 0.0
-
-    self.values[0] = q0
-    self.values[1] = q1
-    self.values[2] = q2
-    self.values[3] = q3
-
-      
-  def invert(self):
-    self.conjugate()
-    res = Quaternion.multiply(self, self)
-    mod2 = res[0]
-    self.values[0] = self.values[0] / mod2
-    self.values[1] = self.values[1] / mod2
-    self.values[2] = self.values[2] / mod2
-    self.values[3] = self.values[3] / mod2
-    
-  
-  def conjugate(self):
-    # values[0] i.e. W is unchanded when conjugating
-    self.values[1] = -self.values[1]
-    self.values[2] = -self.values[2]
-    self.values[3] = -self.values[3]
-
-
-  def copy(self, Q):
-    """
-    Copy the quaternion Q in the current instance by initializing the "values" from the input quaternion
-    python alternative would be some deepcopy
-
-    Parameters
-    ----------
-    Q : quaternion to be used for copying
-
-    Returns
-    -------
-    None.
-    """
-    self.values[0] = Q.values[0]
-    self.values[1] = Q.values[1]
-    self.values[2] = Q.values[2]
-    self.values[3] = Q.values[3]
-
-
-  @staticmethod
-  def multiply(Q0,Q1):
-    """
-    Multiplies two quaternions.
-    NOTE: since quaternion multiply is non commutative, the order of the input parameters matters
-     
-    Input
-    :param Q0: the first quaternion for the multiplication
-    :param Q1: the second quaternion for the multiplication
-     
-    Output
-    :return: A 4 element array containing the final quaternion (q03,q13,q23,q33) 
-    """
-    
-    w0 = Q0.values[0]
-    x0 = Q0.values[1]
-    y0 = Q0.values[2]
-    z0 = Q0.values[3]
-     
-    w1 = Q1.values[0]
-    x1 = Q1.values[1]
-    y1 = Q1.values[2]
-    z1 = Q1.values[3]
-     
-    # Computer the product of the two quaternions, term by term
-    Q0Q1_w = w0 * w1 - x0 * x1 - y0 * y1 - z0 * z1
-    Q0Q1_x = w0 * x1 + x0 * w1 + y0 * z1 - z0 * y1
-    Q0Q1_y = w0 * y1 - x0 * z1 + y0 * w1 + z0 * x1
-    Q0Q1_z = w0 * z1 + x0 * y1 - y0 * x1 + z0 * w1
-     
-    # Create a 4 element array containing the final quaternion
-    # values[0] is the scalar, rest is the vector part x, y, z
-
-    final_quaternion =Quaternion()
-    final_quaternion.values[0] = Q0Q1_w
-    final_quaternion.values[1] = Q0Q1_x
-    final_quaternion.values[2] = Q0Q1_y
-    final_quaternion.values[3] = Q0Q1_z
-
-    return final_quaternion
-
-
 def main():
-  # w = 1440.0
-  # h = 2418.0
-  # f = 1.0 # Focal length in mm, AoV=90
-
-  # sx =  w / 2.0
-  # sy = -h / 2.0
-  # tx =  w / 2.0
-  # ty =  h / 2.0
-
-  # # initialize the figure with the screen size (w, h)
-  # plt.figure()
-  # plt.xlim(-tx, tx)
-  # plt.ylim(-ty, ty)
-  # plt.gca().set_aspect('equal')
-
-  # # Building the rotation matrix
-  # phoneRotationMatrix = np.eye(4)
-  # phoneOrientation = getPhoneOrientation()
-  # phoneRotationMatrix = getRotationMatrixFromVector(phoneOrientation)
-  
-  # # Build the rotation quaternion  
-  # phoneRotationQuaternion = Quaternion()
-  # phoneRotationQuaternionConj = Quaternion()
-  # phoneRotationQuaternion.getQuaternionFromVector(phoneOrientation)
-  # phoneRotationQuaternionConj.copy(phoneRotationQuaternion)
-  # phoneRotationQuaternionConj.conjugate()
-
-  # elev = 0.0 # elevation 0 is the line of the horizon
-  # elevRad = elev * np.pi / 180.0
-  # azRange = range(50, 131, 5)
-  # xVanish = np.zeros(np.size(azRange))
-  # yVanish = np.zeros(np.size(azRange))
-  
-  # # phoneOrientation.values[0] = 0.021908345
-  # # phoneOrientation.values[1] = 0.009795881
-  # # phoneOrientation.values[2] = 0.58035123
-  # # phoneRotationQuaternion.getQuaternionFromVector(phoneOrientation)
-  # # print("Quat: ", phoneRotationQuaternion.values[0], phoneRotationQuaternion.values[1], phoneRotationQuaternion.values[2], phoneRotationQuaternion.values[3])
-  # # phoneRotationQuaternionConj.copy(phoneRotationQuaternion)
-  # # phoneRotationQuaternionConj.conjugate()
-  # # x1, y1, x1q, y1q, z1q, valid = transformPoint(3.0, 3.0, 0.0, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
-  # # print(x1q, y1q, z1q)
-
-
-  # # compute points of the horizon
-  # idx = 0
-  # for az in azRange:
-  #   azRad = float(az) * np.pi / 180.0
-  #   x = np.cos(elevRad) * np.cos(azRad)
-  #   y = np.cos(elevRad) * np.sin(azRad)
-  #   z = np.sin(elevRad)
-
-  #   #transform the vector with quaternion
-  #   x1, y1, x1q, y1q, z1q, valid = transformPoint(x, y, z, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
-  #   if(valid):
-  #     xVanish[idx] = x1
-  #     yVanish[idx] = y1
-  #     idx += 1
-
-  #   # transform the vector with rotation matrix
-  #   # enable this code to compare the results. Rotation matrix must be built outside of the loop
-  #   # v = np.array([x, y, z, 1])
-  #   # vt = phoneRotationMatrix.dot(v)
-  #   # x1rm = vt[0]
-  #   # y1rm = vt[1]
-  #   # z1rm = vt[2]
-  #   # print("x: ", x1rm-x1q, "y: ", y1rm-y1q, "z: ", z1rm-z1q)
-
-  # plt.plot(xVanish[0:idx], yVanish[0:idx], 'r')
 
   # An airplane at Aeroporto Urbe
   latitudePlane  = 41.95232550018577
@@ -261,8 +59,8 @@ def main():
   latCampoleone = 41.64334897069568
   longCampoleone = 12.65955145019369
 
-  latObserver2  = latCampoleone
-  longObserver2 = longCampoleone
+  latObserver2  = latPoggiomirteto
+  longObserver2 = longPoggioMirteto
   altObserver2 = 0.0  # altitude altObserver2 = ?
   Observer2GC = GeoCoord(latObserver2, longObserver2, altObserver2)
   posObserver2 = getPointInEarthFrameFromGeoCoord(Observer2GC)
@@ -351,13 +149,143 @@ def main():
   compatible, P0 = checkUAP(observer1PlaneAz, observer1PlaneEl, Observer1GC, observer2PlaneAz, observer2PlaneEl, Observer2GC, planeGC)
   print("compatible with Ufo = ", compatible)
 
-  xairplane = altitudePlane * np.cos(observer1PlaneEl) * np.cos(observer1PlaneAz)
-  yairplane = altitudePlane * np.cos(observer1PlaneEl) * np.sin(observer1PlaneAz)
-  zairplane = altitudePlane * np.sin(observer1PlaneEl)
+  xairplane = altitudePlane * math.cos(observer1PlaneEl) * math.cos(observer1PlaneAz)
+  yairplane = altitudePlane * math.cos(observer1PlaneEl) * math.sin(observer1PlaneAz)
+  zairplane = altitudePlane * math.sin(observer1PlaneEl)
   xpVanish, ypVanish, x1q, y1q, z1q, valid = transformPoint(xairplane, yairplane, zairplane, phoneRotationQuaternion, phoneRotationQuaternionConj, sx, sy, tx, ty)
   circle = plt.Circle((xpVanish, ypVanish), 20.0, color='b')
   plt.gca().add_patch(circle)
   plt.show()
+
+def makeArray(r, c):
+  rows, cols = (r, c)
+  if ((r > 1) and (c == 1)):
+    C = [[0.0] for j in range(rows)]
+  if ((r == 1) and (c > 1)):
+    C = [0.0 for i in range(cols)]
+  if((r > 1) and (c > 1)):
+    C = [[0.0 for i in range(cols)] for j in range(rows)]
+  if((r == 1) and (c == 1)):
+    C = [0.0]
+  return C
+
+
+def checkInputSize(A):
+  if hasattr(A[0], '__len__'):
+    colsA = len(A[0])
+    rowsA = len(A)
+  else:
+    rowsA = 1
+    if hasattr(A, '__len__'):
+      colsA = len(A)
+    else:
+      colsA = 1
+  return rowsA, colsA
+
+
+def transposeMat(A):
+  rowsA, colsA = checkInputSize(A)
+  if ((colsA > 1) and (rowsA > 1)):
+    C = makeArray(colsA, rowsA)
+    for row in range(rowsA): 
+      for col in range(colsA):
+        C[col][row] = A[row][col]
+  elif ((colsA == 1) and (rowsA > 1)):
+    C = makeArray(colsA, rowsA)
+    for row in range(rowsA): 
+        C[row] = A[row][0]
+  elif ((colsA > 1) and (rowsA == 1)):
+    C = makeArray(colsA, rowsA)
+    for col in range(colsA): 
+        C[col][0] = A[col]
+  else:
+    print("Che te sei bevuto ? (transposeMat)")
+    C = 0
+  return C
+
+
+def mulMat(A, B):
+  rowsA, colsA = checkInputSize(A)
+  rowsB, colsB = checkInputSize(B)
+  if (colsA == rowsB):
+    C = makeArray(rowsA, colsB)
+    for row in range(rowsA): 
+      for col in range(colsB):
+        for elt in range(rowsA):
+          C[row][col] += A[row][elt] * B[elt][col]
+  else:
+    print("Che te sei bevuto ? (mulMat)")
+    C = 0
+  return C
+
+
+def matByScalar(A, s):
+  rowsA, colsA = checkInputSize(A)
+  C = makeArray(rowsA, colsA)
+  if((rowsA > 1) and (colsA > 1)):
+    for row in range(rowsA): 
+      for col in range(colsA):
+        C[row][col] = A[row][col] * s
+  elif ((rowsA > 1) and (colsA == 1)):
+    for row in range(rowsA): 
+      C[row][0] = A[row][0] * s
+  elif ((colsA > 1) and (rowsA == 1)):
+    for col in range(colsA):
+      C[col] = A[col] * s
+  else:
+    print("Che te sei bevuto ? (matByScalar)")
+  return C
+
+
+def vecDot(A, B):
+  rowsA, colsA = checkInputSize(A)
+  rowsB, colsB = checkInputSize(B)
+  resDot = 0.0
+  if ((rowsA == rowsB) and (colsA == 1) and (colsB == 1)):
+    if (rowsA >= 1):
+      for row in range(rowsA):
+        resDot += A[row][0] * B[row][0]
+  elif ((colsA == colsB) and (rowsA == 1) and (rowsB == 1)):
+    if (colsA >= 1):
+      for col in range(colsA):
+        resDot += A[col] * B[col]
+  else:
+    print("Che te sei bevuto ? (dot)")
+  return resDot
+
+
+def matSum(A, B):
+  rowsA, colsA = checkInputSize(A)
+  rowsB, colsB = checkInputSize(B)
+  if ((rowsA == rowsB) and (colsA == colsB)):
+    C = makeArray(rowsA, colsA)
+    if((rowsA > 1) and (colsA > 1)):
+      for row in range(rowsA): 
+        for col in range(colsB):
+          C[row][col] = A[row][col] + B[row][col]
+    elif((rowsA > 1) and (colsA == 1)):
+      for row in range(rowsA): 
+        C[row][0] = A[row][0] + B[row][0]
+    elif((colsA > 1) and (rowsA == 1)):
+      for col in range(colsA):
+        C[col] = A[col] + B[col]
+  else:
+    print("Che te sei bevuto ? (vecSum)")
+  return C
+
+
+def vecCross(A, B):
+  rowsA, colsA = checkInputSize(A)
+  rowsB, colsB = checkInputSize(B)
+  if ((colsA == 3) and (colsB == 3)):
+    C = makeArray(colsA, colsB)
+    C[0] = A[1] * B[2] - A[2] * B[1]
+    C[1] = A[2] * B[0] - A[0] * B[2]
+    C[2] = A[0] * B[1] - A[1] * B[0]
+  else:
+    print("Che te sei bevuto ? (cross)")
+    C = 0
+  return C
 
 
 def getPlaneList():
@@ -408,16 +336,20 @@ def printUAPList(uap):
 def generateTestObservation(observerGC, planeGC, posName):
   posObserver = getPointInEarthFrameFromGeoCoord(observerGC)
   posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
-  TransformMatrix, north, east = getTransformationMatrix(observerGC)
-  relPos = posPlane - posObserver
-  posPlaneInObserverFrame = np.matmul(TransformMatrix, relPos)
+  TransformMatrix = getTransformationMatrix(observerGC)
+  relPos = matSum(posPlane, matByScalar(posObserver, -1.0))
+  posPlaneInObserverFrame = transposeMat(mulMat(TransformMatrix, transposeMat(relPos)))
   pInObsX = posPlaneInObserverFrame[0]
   pInObsY = posPlaneInObserverFrame[1]
   pInObsZ = posPlaneInObserverFrame[2]
-  observerPlaneAz = np.arctan2(pInObsY, pInObsX)
-  observerPlaneEl = np.arctan2(pInObsZ, np.sqrt(pInObsX * pInObsX + pInObsY * pInObsY))
+  observerPlaneAz = math.atan2(pInObsY, pInObsX)
+  observerPlaneEl = math.atan2(pInObsZ, math.sqrt(pInObsX * pInObsX + pInObsY * pInObsY))
 
-  dist1 = pointPointDistance(posPlaneInObserverFrame, np.array([0.0, 0.0, 0.0]))
+  origin = makeArray(1, 3)
+  origin[0] = 0.0
+  origin[1] = 0.0
+  origin[2] = 0.0
+  dist1 = pointPointDistance(posPlaneInObserverFrame, origin)
   print("Position of the airplane in local ", posName, " frame = ", posPlaneInObserverFrame)
   print("Dist = ", dist1, "Az = ", observerPlaneAz * rad2deg, "El = ", observerPlaneEl * rad2deg)
 
@@ -427,146 +359,16 @@ def generateTestObservation(observerGC, planeGC, posName):
 def getAzElFromObserver(observerGC, planeGC):
   posObserver = getPointInEarthFrameFromGeoCoord(observerGC)
   posPlane = getPointInEarthFrameFromGeoCoord(planeGC)
-  TransformMatrix, north, east = getTransformationMatrix(observerGC)
-  relPos = posPlane - posObserver
-  posPlaneInObserverFrame = np.matmul(TransformMatrix, relPos)
+  TransformMatrix = getTransformationMatrix(observerGC)
+  relPos = matSum(posPlane, matByScalar(posObserver, -1.0))
+  posPlaneInObserverFrame = transposeMat(mulMat(TransformMatrix, transposeMat(relPos)))
   pInObsX = posPlaneInObserverFrame[0]
   pInObsY = posPlaneInObserverFrame[1]
   pInObsZ = posPlaneInObserverFrame[2]
-  planeAz = np.arctan2(pInObsY, pInObsX)
-  planeEl = np.arctan2(pInObsZ, np.sqrt(pInObsX * pInObsX + pInObsY * pInObsY))
+  planeAz = math.atan2(pInObsY, pInObsX)
+  planeEl = math.atan2(pInObsZ, math.sqrt(pInObsX * pInObsX + pInObsY * pInObsY))
 
   return planeAz,planeEl
-
-
-def transformPoint(x, y, z, rotationQuaternion, rotationQuaternionConj, sx, sy, tx, ty):
-  """
-  Do the transformation by computing  qvq'
-  Assumption not checked by the code:
-    the rotation quaternion is well formed (unitary) so that it is not needed to
-    compute the inverse of q but it is sufficient to use the conjugate.
-  NOTE: xq1, yq1, zq1 are returned only for debug. No need of them in the production code
-
-  """
-  resultQuaternion = Quaternion()
-  resultQuaternion.values[0] = 0.0
-  resultQuaternion.values[1] = x
-  resultQuaternion.values[2] = y
-  resultQuaternion.values[3] = z
-  resultQuaternion = Quaternion().multiply(rotationQuaternion, resultQuaternion)
-  resultQuaternion = Quaternion().multiply(resultQuaternion, rotationQuaternionConj)
-  xq1 = resultQuaternion.values[1]
-  yq1 = resultQuaternion.values[2]
-  zq1 = resultQuaternion.values[3]
-
-  x1 = xq1
-  y1 = zq1
-  z1 = -yq1
-
-  valid = False
-  if(z1 < 0.0):
-    valid = True
-
-  x1 = (x1 / z1) * sx
-  y1 = (y1 / z1) * sy
-
-  return x1, y1, xq1, yq1, zq1, valid
-
-
-def getPhoneOrientation():
-  """
-  Emulates the acquisition of the phone orientation from Android API
-
-  Returns
-  -------
-  phoneOrientation : TYPE_ROTATION_VECTOR
-    rotation vector with 3 entries composed by a normalized vector with 
-    components(vx, vy, vz) defining the rotation axes, scaled by the 
-    sin of the rotation angle. This construction justifies how the 
-    getRotationMatrixFromVector and getQuaternionFromVector work.
-    NOTE: when the angle is zero the rotation axe is irrelevant and the 
-    returned rotation vector is zero
-    TYPE_ROTATION_VECTOR:   [x*sin(alpha), y*sin(alpha), z*sin(alpha)[)]
-  """
-  phoneOrientation = RotationVector()
-  
-  # Axis definition
-  vx = 0.0
-  vy = 0.0
-  vz = 1.0
-  # Angle definition
-  angle = -77.0
-  
-  if (angle == 0.0): # to avoid div by zero when axes and angle are all zero
-    vx = 0.0
-    vy = 0.0
-    vz = 0.0
-  else:
-    # normalize axes andmultiply by sin angle
-    modV = np.sqrt(vx*vx + vy*vy + vz*vz)
-    st = np.sin(angle * np.pi / 180.0 / 2.0)
-    vx = vx * st / modV
-    vy = vy * st / modV
-    vz = vz * st / modV
-  
-  phoneOrientation.values = np.array([vx, vy, vz])
-  return phoneOrientation
-
-
-def getRotationMatrixFromVector(rotationVector):
-  """
-  See: https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/hardware/SensorManager.java
-  method: getRotationMatrixFromVector
-  input: 
-  output: the corresponding 4x4 rotation matrix
-
-  Parameters
-  ----------
-  rotationVector: TYPE_ROTATION_VECTOR
-    rotation vector with 3 entries
-
-  Returns
-  -------
-  rotationMatrix : 4x4 rotation matrix
-  """
-  rotationMatrix = np.eye(4)  # declare identity as default rotation matrix 4x4
-  q1 = rotationVector.values[0]
-  q2 = rotationVector.values[1]
-  q3 = rotationVector.values[2]
-  q0 = 1.0 - q1 * q1 - q2 * q2 - q3 * q3
-  
-  if(q0 > 0.0):
-    q0 = np.sqrt(q0)
-  else:
-    q0 = 0.0
-
-  sq_q1 = 2.0 * q1 * q1
-  sq_q2 = 2.0 * q2 * q2
-  sq_q3 = 2.0 * q3 * q3
-  q1_q2 = 2.0 * q1 * q2
-  q3_q0 = 2.0 * q3 * q0
-  q1_q3 = 2.0 * q1 * q3
-  q2_q0 = 2.0 * q2 * q0
-  q2_q3 = 2.0 * q2 * q3
-  q1_q0 = 2.0 * q1 * q0
-
-  rotationMatrix[0, 0] = 1.0 - sq_q2 - sq_q3
-  rotationMatrix[0, 1] = q1_q2 - q3_q0
-  rotationMatrix[0, 2] = q1_q3 + q2_q0
-  rotationMatrix[0, 3] = 0.0
-  rotationMatrix[1, 0] = q1_q2 + q3_q0
-  rotationMatrix[1, 1] = 1 - sq_q1 - sq_q3
-  rotationMatrix[1, 2] = q2_q3 - q1_q0
-  rotationMatrix[1, 3] = 0.0
-  rotationMatrix[2, 0] = q1_q3 - q2_q0
-  rotationMatrix[2, 1] = q2_q3 + q1_q0
-  rotationMatrix[2, 2] = 1.0 - sq_q1 - sq_q2
-  rotationMatrix[2, 3] = 0.0
-  rotationMatrix[3, 0] = 0.0
-  rotationMatrix[3, 1] = 0.0 
-  rotationMatrix[3, 2] = 0.0
-  rotationMatrix[3, 3] = 1.0
-  return rotationMatrix
 
 
 def getPointInEarthFrameFromGeoCoord(GeoCoord):
@@ -589,10 +391,13 @@ def getPointInEarthFrameFromGeoCoord(GeoCoord):
   lat = GeoCoord.latitude  * deg2rad
   lon = GeoCoord.longitude * deg2rad
   r = r + GeoCoord.altitude
-  x = r * np.cos(lat) * np.cos(lon)
-  y = r * np.cos(lat) * np.sin(lon)
-  z = r * np.sin(lat)
-  P = np.array([x, y, z])
+  x = r * math.cos(lat) * math.cos(lon)
+  y = r * math.cos(lat) * math.sin(lon)
+  z = r * math.sin(lat)
+  P = makeArray(1, 3)
+  P[0] = x
+  P[1] = y
+  P[2] = z
   return P
 
 
@@ -600,7 +405,7 @@ def pointPointDistance(P1, P2):
   q1 = (P1[0]-P2[0]) * (P1[0]-P2[0])
   q2 = (P1[1]-P2[1]) * (P1[1]-P2[1])
   q3 = (P1[2]-P2[2]) * (P1[2]-P2[2])
-  d = np.sqrt(q1 + q2 + q3)
+  d = math.sqrt(q1 + q2 + q3)
   return d
 
 
@@ -643,11 +448,11 @@ def lineLineDistance(az1, el1, az2, el2, Observer2InFrame1):
   y2 = Observer2InFrame1[1]
   z2 = Observer2InFrame1[2]
   
-  b =      np.cos(el1) * np.cos(el2) * np.cos(az1) * np.cos(az2)
-  b = b  + np.cos(el1) * np.cos(el2) * np.sin(az1) * np.sin(az2)
-  b = b  + np.sin(el1) * np.sin(el2)
-  c = x2 * np.cos(el1) * np.cos(az1) + y2 * np.cos(el1) * np.sin(az1) + z2 * np.sin(el1)
-  d = x2 * np.cos(el2) * np.cos(az2) + y2 * np.cos(el2) * np.sin(az2) + z2 * np.sin(el2)
+  b =      math.cos(el1) * math.cos(el2) * math.cos(az1) * math.cos(az2)
+  b = b  + math.cos(el1) * math.cos(el2) * math.sin(az1) * math.sin(az2)
+  b = b  + math.sin(el1) * math.sin(el2)
+  c = x2 * math.cos(el1) * math.cos(az1) + y2 * math.cos(el1) * math.sin(az1) + z2 * math.sin(el1)
+  d = x2 * math.cos(el2) * math.cos(az2) + y2 * math.cos(el2) * math.sin(az2) + z2 * math.sin(el2)
   
   # In general some check should be necessary to avoid div by zero.
   # In reality the fact that the observers are distinct should always
@@ -655,15 +460,23 @@ def lineLineDistance(az1, el1, az2, el2, Observer2InFrame1):
   k2 = (d - b * c) / (b * b - 1)
   k1 = k2 * b + c
 
-  xr0 = k1 * np.cos(el1) * np.cos(az1)
-  yr0 = k1 * np.cos(el1) * np.sin(az1)
-  zr0 = k1 * np.sin(el1)
-  P0 = np.array([xr0, yr0, zr0])
+  xr0 = k1 * math.cos(el1) * math.cos(az1)
+  yr0 = k1 * math.cos(el1) * math.sin(az1)
+  zr0 = k1 * math.sin(el1)
+  #P0 = np.array([xr0, yr0, zr0])
+  P0 = makeArray(1, 3)
+  P0[0] = xr0
+  P0[1] = yr0
+  P0[2] = zr0
 
-  xr1 = k2 * np.cos(el2) * np.cos(az2) + x2
-  yr1 = k2 * np.cos(el2) * np.sin(az2) + y2
-  zr1 = k2 * np.sin(el2) + z2
-  P1 = np.array([xr1, yr1, zr1])
+  xr1 = k2 * math.cos(el2) * math.cos(az2) + x2
+  yr1 = k2 * math.cos(el2) * math.sin(az2) + y2
+  zr1 = k2 * math.sin(el2) + z2
+  #P1 = np.array([xr1, yr1, zr1])
+  P1 = makeArray(1, 3)
+  P1[0] = xr1
+  P1[1] = yr1
+  P1[2] = zr1
   
   dist = pointPointDistance(P0, P1)
   return dist, P0, P1
@@ -698,12 +511,16 @@ def pointLineDistance(az, el, P0):
   y0 = P0[1]
   z0 = P0[2]
 
-  k = x0 * np.cos(el) * np.cos(az) + y0 * np.cos(el) * np.sin(az) + z0 * np.sin(el)
+  k = x0 * math.cos(el) * math.cos(az) + y0 * math.cos(el) * math.sin(az) + z0 * math.sin(el)
   
-  x1 = k * np.cos(el) * np.cos(az)
-  y1 = k * np.cos(el) * np.sin(az)
-  z1 = k * np.sin(el)
-  P1 = np.array([x1, y1, z1])
+  x1 = k * math.cos(el) * math.cos(az)
+  y1 = k * math.cos(el) * math.sin(az)
+  z1 = k * math.sin(el)
+  #P1 = np.array([x1, y1, z1])
+  P1 = makeArray(1, 3)
+  P1[0] = x1
+  P1[1] = y1
+  P1[2] = z1
 
   dist = pointPointDistance(P0, P1)
   
@@ -736,9 +553,9 @@ def checkUAP(observation1, observation2):
   compatible = False
   doUpdate = False
 
-  TransformMatrix1, north1, east1 = getTransformationMatrix(observation1.ObserverGC)
-  TransformMatrix2, north2, east2 = getTransformationMatrix(observation2.ObserverGC)
-  TransformMatrix3 = np.matmul(TransformMatrix1, TransformMatrix2.transpose())
+  TransformMatrix1 = getTransformationMatrix(observation1.ObserverGC)
+  TransformMatrix2 = getTransformationMatrix(observation2.ObserverGC)
+  TransformMatrix3 = mulMat(TransformMatrix1, transposeMat(TransformMatrix2))
 
   posObserver1 = getPointInEarthFrameFromGeoCoord(observation1.ObserverGC)
   posObserver2 = getPointInEarthFrameFromGeoCoord(observation2.ObserverGC)
@@ -751,23 +568,32 @@ def checkUAP(observation1, observation2):
   if (pointPointDistance(posObserver1, posObserver2) < minObserversDistance):
     doUpdate = True
   else:
-    obs2InObs1 = posObserver2 - posObserver1
-    o2InO1 = np.matmul(TransformMatrix1, obs2InObs1)
+    obs2InObs1 = matSum(posObserver2, matByScalar(posObserver1, -1.0))
+    #o2InO1 = np.matmul(TransformMatrix1, obs2InObs1)
+    o2InO1 = transposeMat(mulMat(TransformMatrix1, transposeMat(obs2InObs1)))
     # Build the vector associated to the direction of the plane in the frame of Observer 2
-    d = np.array([np.cos(observation2.el)*np.cos(observation2.az), np.cos(observation2.el)*np.sin(observation2.az), np.sin(observation2.el)])
-    d = d / np.sqrt(np.dot(d, d))
+    d = makeArray(1, 3)
+    d[0] = math.cos(observation2.el)*math.cos(observation2.az)
+    d[1] = math.cos(observation2.el)*math.sin(observation2.az)
+    d[2] = math.sin(observation2.el)
+    moduleD = math.sqrt(vecDot(d, d))
+    d = matByScalar(d, (1.0 / moduleD))
+
     # Transform the vector associated to the direction of the plane to the frame of Observer 1
-    dInO1 = np.matmul(TransformMatrix3, d)
+    dInO1 = transposeMat(mulMat(TransformMatrix3, transposeMat(d)))
     # Compute the updated azimuth and elevation in the frame of Observer 1
-    ro = np.sqrt(dInO1[0]*dInO1[0] + dInO1[1]*dInO1[1] + dInO1[2]*dInO1[2])
-    el = np.arcsin(dInO1[2] / ro)
-    az = np.arctan2(dInO1[1], dInO1[0])
+    ro = math.sqrt(dInO1[0]*dInO1[0] + dInO1[1]*dInO1[1] + dInO1[2]*dInO1[2])
+    el = math.asin(dInO1[2] / ro)
+    az = math.atan2(dInO1[1], dInO1[0])
     # Compute the min distance of the two lines in the frame of Observer 1
     lineLineDist_2, P0_2, P1_2 = lineLineDistance(observation1.az, observation1.el, az, el, o2InO1)
 
     # Let assume by now a linear increase of the error with the distance of the object from the observers 
     # To get an error estimate we assume an increase factor equal to 1e-3 (1m every 1000m)
-    observer1Origin = np.array([0.0, 0.0, 0.0])
+    observer1Origin = makeArray(1, 3)
+    observer1Origin[0] = 0.0
+    observer1Origin[1] = 0.0
+    observer1Origin[2] = 0.0
     ufoDist1 = pointPointDistance(P0_2, observer1Origin)
     ufoDist2 = pointPointDistance(P1_2, observer1Origin)
     ufoDist3 = pointPointDistance(P0_2, o2InO1)
@@ -817,13 +643,19 @@ def checkAirplane(observation1, geoCoordAirplane):
   """
   posObserver = getPointInEarthFrameFromGeoCoord(observation1.ObserverGC)
   posPlane = getPointInEarthFrameFromGeoCoord(geoCoordAirplane)
-  TransformMatrix, north, east = getTransformationMatrix(observation1.ObserverGC)
-  posPlaneLoc = np.matmul(TransformMatrix, (posPlane - posObserver))
+  TransformMatrix = getTransformationMatrix(observation1.ObserverGC)
+  #posPlaneLoc = np.matmul(TransformMatrix, (posPlane - posObserver))
+  relPos = matSum(posPlane, matByScalar(posObserver, -1.0))
+  posPlaneLoc = transposeMat(mulMat(TransformMatrix, transposeMat(relPos)))
 
   ptLineDist = pointLineDistance(observation1.az, observation1.el, posPlaneLoc)
 
   # Let assume by now a linear increase of the error with the distance with increase factor equal to 1e-3
-  observerOrigin = np.array([0.0, 0.0, 0.0])
+  #observerOrigin = np.array([0.0, 0.0, 0.0])
+  observerOrigin = makeArray(1, 3)
+  observerOrigin[0] = 0.0
+  observerOrigin[1] = 0.0
+  observerOrigin[2] = 0.0
   airplaneDist = pointPointDistance(posPlaneLoc, observerOrigin)
   coeff = 1e-3
   maxErr = coeff * airplaneDist
@@ -845,42 +677,136 @@ def getTransformationMatrix(GeoCoordOfOrigin):
   P0 = getPointInEarthFrameFromGeoCoord(GeoCoordOfOrigin)
   
   # Compute a vector orthogonal to the surface of the sphere, pointing outside
-  gradf = np.array([2.0*P0[0], 2.0*P0[1], 2.0*P0[2]])
-  v = gradf / np.sqrt(np.dot(gradf, gradf))
-  
+  gradf = makeArray(1, 3)
+  gradf[0] = 2.0 * P0[0]
+  gradf[1] = 2.0 * P0[1]
+  gradf[2] = 2.0 * P0[2]
+  moduleV = math.sqrt(vecDot(gradf, gradf))
+  v = matByScalar(gradf, (1.0 / moduleV))
+
   # East is ortogonal to the normal to the surface without Z component
   # that is a vector tangent to the circle at z = z0 (section of the sphere at z=z0)
-  east = np.array([-2.0*P0[1], 2.0*P0[0], 0.0])  # orthogonal --> swap components, change sign of the first
-  e = east / np.sqrt(np.dot(east, east))
+  east = makeArray(1, 3)
+  east[0] = -2.0 * P0[1]
+  east[1] =  2.0 * P0[0]
+  east[2] =  0.0
+  moduleE = math.sqrt(vecDot(east, east))
+  e = matByScalar(east, (1.0 / moduleE))
 
   # North (n vector) is orthogonal to the Normal to the sphere (v - vertical vector) and to the East (e vector)
-  north = np.cross(v, e)
-  n = north / np.sqrt(np.dot(north, north))
+  north = vecCross(v, e)
+  moduleN = math.sqrt(vecDot(north, north))
+  n = matByScalar(north, (1.0 / moduleN))
 
-  TransformMatrix = np.zeros((3,3))
-  TransformMatrix[0, 0] = e[0]
-  TransformMatrix[0, 1] = e[1]
-  TransformMatrix[0, 2] = e[2]
-  TransformMatrix[1, 0] = n[0]
-  TransformMatrix[1, 1] = n[1]
-  TransformMatrix[1, 2] = n[2]
-  TransformMatrix[2, 0] = v[0]
-  TransformMatrix[2, 1] = v[1]
-  TransformMatrix[2, 2] = v[2]
-  #TransformMatrix.transpose()
+  TransformMatrix = makeArray(3, 3)
 
-  return TransformMatrix, n, e
-
-def getAngle(v1, v2):
-  """
-  After the generation of the transformation matrix the function is unused.
-  To be removedsuring final cleanup in case it will still be unused.
-  The function is anyway correct
-  """
-  angle = np.arccos(np.dot(v1, v2)/(np.sqrt(np.dot(v1, v1)) * np.sqrt(np.dot(v2, v2))))
-  return angle
+  TransformMatrix[0][0] = e[0]
+  TransformMatrix[0][1] = e[1]
+  TransformMatrix[0][2] = e[2]
+  TransformMatrix[1][0] = n[0]
+  TransformMatrix[1][1] = n[1]
+  TransformMatrix[1][2] = n[2]
+  TransformMatrix[2][0] = v[0]
+  TransformMatrix[2][1] = v[1]
+  TransformMatrix[2][2] = v[2]
+ 
+  return TransformMatrix
 
 
 if __name__ == "__main__":
   main()
 
+
+
+"""
+  A = makeArray(3, 3)
+  A[0][0] = 1.0
+  A[0][1] = 0.0
+  A[0][2] = 0.0
+  A[1][0] = 0.0
+  A[1][1] = 1.0
+  A[1][2] = 0.0
+  A[2][0] = 0.0
+  A[2][1] = 0.0
+  A[2][2] = 1.0
+  print ("A = ", A)
+  print("transposeMat(A): ", transposeMat(A))
+
+  B = makeArray(3, 1)
+  B[0][0] = 1.0
+  B[1][0] = 2.0
+  B[2][0] = 3.0
+  print("B: ", B)
+  print("transposeMat(B): ", transposeMat(B))
+
+  C = makeArray(1, 3)
+  C[0] = 1.0
+  C[1] = 2.0
+  C[2] = 3.0
+  print("C: ", C)
+  print("transposeMat(C): ", transposeMat(C))
+
+  M1 = mulMat(A, B)
+  print("A = ", A)
+  print("B = ", B)
+  print("M1 = ", M1)
+
+  M2 = transposeMat(mulMat(A, transposeMat(C)))
+  print("A = ", A)
+  print("C = ", C)
+  print("M2 = ", M2)
+
+  resDot = vecDot(B, B)
+  print("B dot B", resDot)
+  D = makeArray(1, 3)
+  D[0] = 1.0
+  D[1] = 1.0
+  D[2] = 1.0
+  E = [1.0, 2.0, 3.0]
+  print ("D = ", D)
+  print ("E = ", E)
+  resDot = vecDot(E, D)
+  print("E dot D", resDot)
+
+  F = [1.0, 0.0, 0.0]
+  G = [0.0, 1.0, 0.0]
+  print("F = ", F, "G = ", G)
+  resCross = vecCross(E, E)
+  print("cross E, E = ", resCross)
+  resCross = vecCross(F, G)
+  print("cross F, G = ", resCross)
+  resCross = vecCross(G, F)
+  print("cross G, F = ", resCross)
+
+  H = makeArray(3, 1)
+  print("H(3, 1): ", H)
+  I = makeArray(3, 3)
+  print("I(3, 3): ", I)
+  L = makeArray(1, 3)
+  print("L(1, 3): ", L)
+
+  res1 = matByScalar(A, 2.0)
+  print("A * 2 = ", res1)
+
+  res2 = matByScalar(E, 2.0)
+  print("E * 2 = ", res2)
+
+  res3 = matByScalar(B, 2.0)
+  print("B * 2 = ", res3 )
+
+  print("matSum(A, A)", matSum(A, A))
+  print("matSum(B, B)", matSum(B, B))
+  print("matSum(C, C)", matSum(C, C))
+
+  print("matSum(A, -A)", matSum(A, matByScalar(A, -1)))
+  print("matSum(B, -B)", matSum(B, matByScalar(B, -1)))
+  print("matSum(C, -C)", matSum(C, matByScalar(C, -1)))
+
+  print("matSum(-A, A)", matSum(matByScalar(A, -1), A))
+  print("matSum(-B, B)", matSum(matByScalar(B, -1), B))
+  print("matSum(-C, C)", matSum(matByScalar(C, -1), C))
+
+  print("matSum(-F, G)", matSum(matByScalar(F, -1), G))
+
+  return
+"""
